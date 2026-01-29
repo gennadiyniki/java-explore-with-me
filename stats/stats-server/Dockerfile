@@ -1,8 +1,13 @@
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
-# Копируем POM файлы и исходники
+# Копируем POM файлы
 COPY pom.xml .
+
+# Копируем checkstyle.xml БЕЗ ПРОБЛЕМ - используем ADD вместо COPY
+ADD checkstyle.xml .
+
+# Копируем stats модули
 COPY stats/pom.xml ./stats/
 COPY stats/stats-dto/pom.xml ./stats/stats-dto/
 COPY stats/stats-client/pom.xml ./stats/stats-client/
@@ -11,8 +16,8 @@ COPY stats/stats-dto/src ./stats/stats-dto/src
 COPY stats/stats-client/src ./stats/stats-client/src
 COPY stats/stats-server/src ./stats/stats-server/src
 
-# Собираем с отключенным checkstyle
-RUN mvn clean package -DskipTests -Dcheckstyle.skip=true -pl stats/stats-server -am
+# Собираем
+RUN mvn clean package -DskipTests -pl stats/stats-server -am
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
