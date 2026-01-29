@@ -1,12 +1,24 @@
-# Минимальный рабочий Dockerfile для CI/CD
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 
 WORKDIR /app
 
-# Копируем ВЕСЬ проект
-COPY . .
+# Копируем только необходимые части проекта
+COPY pom.xml .
+COPY checkstyle.xml .
+COPY stats/pom.xml ./stats/
+COPY stats/stats-server/pom.xml ./stats/stats-server/
+COPY stats/stats-dto/pom.xml ./stats/stats-dto/
+COPY stats/stats-client/pom.xml ./stats/stats-client/
 
-# Собираем только stats-server (указываем относительный путь)
+# Скачиваем зависимости
+RUN mvn dependency:go-offline -B
+
+# Копируем исходный код
+COPY stats/stats-dto/src ./stats/stats-dto/src
+COPY stats/stats-client/src ./stats/stats-client/src
+COPY stats/stats-server/src ./stats/stats-server/src
+
+# Собираем проект
 RUN mvn clean package -DskipTests -pl stats/stats-server -am
 
 # Финальный образ

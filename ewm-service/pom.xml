@@ -10,7 +10,6 @@
         <artifactId>explore-with-me</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
-
     <artifactId>ewm-service</artifactId>
     <name>ewm-service</name>
 
