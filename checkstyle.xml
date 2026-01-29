@@ -49,9 +49,9 @@
 			<property name="allowEmptyMethods" value="true"/>
 			<property name="allowEmptyTypes" value="true"/>
 			<property name="allowEmptyLoops" value="true"/>
-			<message key="ws.notPreceded" value="WhitespaceAround: &apos;{0}&apos; is not preceded with whitespace."/>
+			<message key="ws.notPreceded" value="WhitespaceAround: ''{0}'' is not preceded with whitespace."/>
 			<message key="ws.notFollowed"
-					 value="WhitespaceAround: &apos;{0}&apos; is not followed by whitespace. Empty blocks may only be represented as &apos;{}&apos; when not part of a multi-block statement (4.1.3)"/>
+					 value="WhitespaceAround: ''{0}'' is not followed by whitespace. Empty blocks may only be represented as '{}' when not part of a multi-block statement (4.1.3)"/>
 		</module>
 		<module name="ArrayTypeStyle"/>
 		<module name="MissingSwitchDefault">
@@ -92,49 +92,49 @@
 		</module>
 		<module name="PackageName">
 			<!--<property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>-->
-			<message key="name.invalidPattern" value="Package name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Package name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="TypeName">
-			<message key="name.invalidPattern" value="Type name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Type name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="MemberName">
-			<message key="name.invalidPattern" value="Member name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Member name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="ParameterName">
 			<property name="format" value="^[a-z]([a-zA-Z0-9]*)?$"/>
 			<property name="accessModifiers" value="public"/>
-			<message key="name.invalidPattern" value="Parameter name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Parameter name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="CatchParameterName">
 			<property name="format" value="^[a-z]([a-z0-9][a-zA-Z0-9]*)?$"/>
-			<message key="name.invalidPattern" value="Catch parameter name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Catch parameter name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="LocalVariableName">
 			<property name="format" value="^[a-z]([a-zA-Z0-9]*)?$"/>
 			<property name="tokens" value="VARIABLE_DEF"/>
-			<message key="name.invalidPattern" value="Local variable name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Local variable name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="ClassTypeParameterName">
 			<property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)"/>
-			<message key="name.invalidPattern" value="Class type name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Class type name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="MethodTypeParameterName">
 			<property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$)"/>
-			<message key="name.invalidPattern" value="Method type name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Method type name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="InterfaceTypeParameterName">
 			<property name="format" value="(^[A-Z][0-9]?)$|([A-Z][a-zA-Z0-9]*[T]$|[ID]$)"/>
-			<message key="name.invalidPattern" value="Interface type name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Interface type name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="NoFinalizer">
 			<property name="severity" value="ignore"/>
 			<metadata name="net.sf.eclipsecs.core.lastEnabledSeverity" value="inherit"/>
 		</module>
 		<module name="GenericWhitespace">
-			<message key="ws.notPreceded" value="GenericWhitespace &apos;{0}&apos; is not preceded with whitespace."/>
-			<message key="ws.followed" value="GenericWhitespace &apos;{0}&apos; is followed by whitespace."/>
-			<message key="ws.preceded" value="GenericWhitespace &apos;{0}&apos; is preceded with whitespace."/>
-			<message key="ws.illegalFollow" value="GenericWhitespace &apos;{0}&apos; should followed by whitespace."/>
+			<message key="ws.notPreceded" value="GenericWhitespace ''{0}'' is not preceded with whitespace."/>
+			<message key="ws.followed" value="GenericWhitespace ''{0}'' is followed by whitespace."/>
+			<message key="ws.preceded" value="GenericWhitespace ''{0}'' is preceded with whitespace."/>
+			<message key="ws.illegalFollow" value="GenericWhitespace ''{0}'' should followed by whitespace."/>
 		</module>
 		<!-- No trailing whitespace -->
 		<module name="Regexp">
@@ -177,7 +177,7 @@
 			<property name="severity" value="ignore"/>
 			<property name="option" value="NL"/>
 			<property name="tokens"
-					  value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR, LT, MINUS, MOD, NOT_EQUAL, PLUS, QUESTION, SL, SR, STAR, METHOD_REF"/>
+					  value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR, LT, MINUS, MOD, NOT_EQUAL, PLUS, QUESTION, SL, SR, STAR, METHOD_REF "/>
 			<metadata name="net.sf.eclipsecs.core.lastEnabledSeverity" value="inherit"/>
 		</module>
 		<module name="AnnotationLocation">
@@ -221,7 +221,7 @@
 		</module>
 		<module name="MethodName">
 			<property name="format" value="^[a-z][a-zA-Z0-9_]*|NVL$"/>
-			<message key="name.invalidPattern" value="Method name &apos;{0}&apos; must match pattern &apos;{1}&apos;."/>
+			<message key="name.invalidPattern" value="Method name ''{0}'' must match pattern ''{1}''."/>
 		</module>
 		<module name="SingleLineJavadoc">
 			<property name="severity" value="ignore"/>
