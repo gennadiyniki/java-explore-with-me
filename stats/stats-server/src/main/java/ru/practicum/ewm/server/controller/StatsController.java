@@ -20,6 +20,12 @@ public class StatsController {
 
     private final StatsService service;
 
+    @GetMapping("/health")
+    public String health() {
+        log.info("Health check received");
+        return "OK";
+    }
+
     @PostMapping("/hit")
     @ResponseStatus(HttpStatus.CREATED)
     public EndpointHitDto save(@RequestBody @Valid EndpointHitDto hitDto) {

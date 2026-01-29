@@ -58,7 +58,7 @@ services:
       stats-server:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8083:8083"
 
 volumes:
   stats-db-data:
