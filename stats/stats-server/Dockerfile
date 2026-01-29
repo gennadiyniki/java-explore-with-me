@@ -1,21 +1,26 @@
+# Этап сборки
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 
 WORKDIR /app
 
-# Копируем только необходимые части проекта
+# 1. Корневой pom.xml
 COPY pom.xml .
-COPY checkstyle.xml .
+COPY checkstyle.xml . 2>/dev/null || echo "checkstyle.xml не найден, пропускаем"
+
+# 2. Родительский stats/pom.xml
 COPY stats/pom.xml ./stats/
-COPY stats/stats-server/pom.xml ./stats/stats-server/
+
+# 3. Подмодули stats
 COPY stats/stats-dto/pom.xml ./stats/stats-dto/
 COPY stats/stats-client/pom.xml ./stats/stats-client/
+COPY stats/stats-server/pom.xml ./stats/stats-server/
 
-RUN mvn dependency:go-offline -B
-
+# 4. Исходный код
 COPY stats/stats-dto/src ./stats/stats-dto/src
 COPY stats/stats-client/src ./stats/stats-client/src
 COPY stats/stats-server/src ./stats/stats-server/src
 
+# Собираем только stats-server
 RUN mvn clean package -DskipTests -pl stats/stats-server -am
 
 # Финальный образ
