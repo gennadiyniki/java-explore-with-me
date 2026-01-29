@@ -10,15 +10,12 @@ COPY stats/stats-server/pom.xml ./stats/stats-server/
 COPY stats/stats-dto/pom.xml ./stats/stats-dto/
 COPY stats/stats-client/pom.xml ./stats/stats-client/
 
-# Скачиваем зависимости
 RUN mvn dependency:go-offline -B
 
-# Копируем исходный код
 COPY stats/stats-dto/src ./stats/stats-dto/src
 COPY stats/stats-client/src ./stats/stats-client/src
 COPY stats/stats-server/src ./stats/stats-server/src
 
-# Собираем проект
 RUN mvn clean package -DskipTests -pl stats/stats-server -am
 
 # Финальный образ
