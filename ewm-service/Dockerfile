@@ -3,13 +3,14 @@ FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 
 WORKDIR /app
 
+# Копируем всё что нужно
 COPY pom.xml .
-COPY checkstyle.xml . 2>/dev/null || echo "checkstyle.xml не найден, пропускаем"
-# 3. ewm-service модуль
+COPY checkstyle.xml .
 COPY ewm-service/pom.xml ./ewm-service/
 COPY ewm-service/src ./ewm-service/src/
 
-RUN mvn clean package -DskipTests -pl ewm-service -am -N
+# Собираем ewm-service
+RUN mvn clean package -DskipTests -pl ewm-service -am
 
 # Финальный образ
 FROM eclipse-temurin:21-jre-alpine
