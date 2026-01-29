@@ -1,16 +1,17 @@
-#сборка
+# Сборка
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 
 WORKDIR /app
-
-# проект целиком
 COPY . .
-
-#только ewm-service
 RUN mvn clean package -DskipTests -pl ewm-service -am
 
 # Финальный образ
 FROM eclipse-temurin:21-jre-alpine
+
+# Устанавливаем curl (может понадобиться для healthcheck или отладки)
+RUN apk add --no-cache curl
+# ===============================
+
 WORKDIR /app
 COPY --from=build /app/ewm-service/target/*.jar app.jar
 EXPOSE 8083
