@@ -10,11 +10,11 @@ import java.util.List;
 
 public interface StatsRepository extends JpaRepository<EndpointHit, Long> {
 
-    //все посещения
+    // Все посещения
     @Query("SELECT new ru.practicum.ewm.stats.dto.ViewStatsDto(" +
-            "h.app, " +
-            "h.uri, " +
-            "COUNT(h.id)) " +
+            "h.app, " +        // String - app
+            "h.uri, " +        // String - uri
+            "COUNT(h.id)) " +  // Long - hits
             "FROM EndpointHit h " +
             "WHERE h.timestamp BETWEEN :start AND :end " +
             "AND (:uris IS NULL OR h.uri IN :uris) " +
@@ -24,11 +24,11 @@ public interface StatsRepository extends JpaRepository<EndpointHit, Long> {
                                  LocalDateTime end,
                                  List<String> uris);
 
-    //юник посещениям
+    // Уникальные посещения
     @Query("SELECT new ru.practicum.ewm.stats.dto.ViewStatsDto(" +
-            "h.app, " +
-            "h.uri, " +
-            "COUNT(DISTINCT h.ip)) " +
+            "h.app, " +               // String - app
+            "h.uri, " +               // String - uri
+            "COUNT(DISTINCT h.ip)) " + // Long - hits
             "FROM EndpointHit h " +
             "WHERE h.timestamp BETWEEN :start AND :end " +
             "AND (:uris IS NULL OR h.uri IN :uris) " +
@@ -38,3 +38,4 @@ public interface StatsRepository extends JpaRepository<EndpointHit, Long> {
                                        LocalDateTime end,
                                        List<String> uris);
 }
+

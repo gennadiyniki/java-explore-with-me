@@ -10,8 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class ViewStatsDto {
-    private Long hits; // просмотры
+
     private String app;// Идентификатор
     private String uri;// Путь запроса
+    private Long hits; // просмотры
 
 }
