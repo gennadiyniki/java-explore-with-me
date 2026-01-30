@@ -19,10 +19,4 @@
         <module>stats-server</module>
     </modules>
 
-    <properties>
-        <checkstyle.skip>true</checkstyle.skip>
-        <spotbugs.skip>true</spotbugs.skip>
-        <jacoco.skip>true</jacoco.skip>
-    </properties>
-
 </project>
