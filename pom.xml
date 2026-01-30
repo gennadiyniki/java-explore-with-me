@@ -12,7 +12,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.3.2</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
 
     <name>Explore With Me</name>
@@ -30,39 +30,13 @@
         <checkstyle.version>10.17.0</checkstyle.version>
         <spotbugs-maven-plugin.version>4.8.6.1</spotbugs-maven-plugin.version>
         <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <!-- Флаги для отключения проверок -->
+        <checkstyle.skip>false</checkstyle.skip>
+        <spotbugs.skip>false</spotbugs.skip>
+        <jacoco.skip>false</jacoco.skip>
     </properties>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>${maven-checkstyle-plugin.version}</version>
-                <configuration>
-                    <configLocation>checkstyle.xml</configLocation>
-                    <failOnViolation>true</failOnViolation>
-                    <logViolationsToConsole>true</logViolationsToConsole>
-                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                    <consoleOutput>true</consoleOutput>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>compile</phase>
-                    </execution>
-                </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>${checkstyle.version}</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
-        </plugins>
-
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -74,6 +48,37 @@
                         </systemPropertyVariables>
                     </configuration>
                 </plugin>
+
+                <!-- Checkstyle Plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>${maven-checkstyle-plugin.version}</version>
+                    <configuration>
+                        <configLocation>checkstyle.xml</configLocation>
+                        <failOnViolation>true</failOnViolation>
+                        <logViolationsToConsole>true</logViolationsToConsole>
+                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <consoleOutput>true</consoleOutput>
+                        <skip>${checkstyle.skip}</skip>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                            <phase>compile</phase>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.puppycrawl.tools</groupId>
+                            <artifactId>checkstyle</artifactId>
+                            <version>${checkstyle.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+
                 <!-- SpotBugs Maven Plugin -->
                 <plugin>
                     <groupId>com.github.spotbugs</groupId>
@@ -83,6 +88,7 @@
                         <effort>Max</effort>
                         <threshold>High</threshold>
                         <failOnError>true</failOnError>
+                        <skip>${spotbugs.skip}</skip>
                     </configuration>
                     <executions>
                         <execution>
@@ -92,6 +98,7 @@
                         </execution>
                     </executions>
                 </plugin>
+
                 <!-- JaCoCo Maven Plugin -->
                 <plugin>
                     <groupId>org.jacoco</groupId>
@@ -99,6 +106,7 @@
                     <version>${jacoco-maven-plugin.version}</version>
                     <configuration>
                         <output>file</output>
+                        <skip>${jacoco.skip}</skip>
                     </configuration>
                     <executions>
                         <execution>
@@ -167,7 +175,10 @@
 
     <profiles>
         <profile>
-            <id>check</id>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
@@ -178,21 +189,6 @@
                         <groupId>com.github.spotbugs</groupId>
                         <artifactId>spotbugs-maven-plugin</artifactId>
                     </plugin>
-                </plugins>
-            </build>
-            <reporting>
-                <plugins>
-                    <plugin>
-                        <groupId>com.github.spotbugs</groupId>
-                        <artifactId>spotbugs-maven-plugin</artifactId>
-                    </plugin>
-                </plugins>
-            </reporting>
-        </profile>
-        <profile>
-            <id>coverage</id>
-            <build>
-                <plugins>
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
@@ -200,6 +196,7 @@
                 </plugins>
             </build>
         </profile>
+
         <profile>
             <id>skip-checks</id>
             <properties>
