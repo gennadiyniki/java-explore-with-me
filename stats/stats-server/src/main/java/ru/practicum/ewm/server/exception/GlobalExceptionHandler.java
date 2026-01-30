@@ -9,12 +9,12 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.context.request.ServletWebRequest;
+import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,17 +23,24 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private ResponseEntity<Map<String, Object>> build(HttpStatus status, Map<String, String> errors) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("status", status.value());
-        body.put("error", status.name());
-        body.put("timestamp", LocalDateTime.now());
-        body.put("errors", errors);
-        return new ResponseEntity<>(body, status);
+    private ErrorResponse buildErrorResponse(HttpStatus status, Map<String, String> errors,
+                                             String message, WebRequest request) {
+        return ErrorResponse.builder()
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .timestamp(LocalDateTime.now())
+                .errors(errors)
+                .message(message)
+                .path(((ServletWebRequest) request).getRequest().getRequestURI())
+                .build();
+    }
+
+    private ErrorResponse buildErrorResponse(HttpStatus status, Map<String, String> errors, WebRequest request) {
+        return buildErrorResponse(status, errors, null, request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, WebRequest request) {
 
         log.warn(
                 "Валидация не пройдена: {} ошибок. Детали: {}",
@@ -47,9 +54,7 @@ public class GlobalExceptionHandler {
         ex.getBindingResult()
                 .getFieldErrors()
                 .forEach(err -> {
-
                     String field = err.getField();
-
                     if (field.equals("endAfterStart")) {
                         errors.put("end", err.getDefaultMessage());
                     } else {
@@ -57,11 +62,13 @@ public class GlobalExceptionHandler {
                     }
                 });
 
-        return build(HttpStatus.BAD_REQUEST, errors);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, request));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleConstraint(ConstraintViolationException ex) {
+    public ResponseEntity<ErrorResponse> handleConstraint(ConstraintViolationException ex, WebRequest request) {
 
         log.warn("Обнаружено нарушение ограничений: {}", ex.getMessage(), ex);
 
@@ -76,19 +83,24 @@ public class GlobalExceptionHandler {
                         (existing, replacement) -> existing
                 ));
 
-        return build(HttpStatus.BAD_REQUEST, errors);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, request));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleDBIntegrity(DataIntegrityViolationException ex) {
+    public ResponseEntity<ErrorResponse> handleDBIntegrity(DataIntegrityViolationException ex, WebRequest request) {
         log.error("Ошибка базы данных", ex);
         Map<String, String> errors = new HashMap<>();
         errors.put("error", "Нарушение ограничений базы данных: " + ex.getMostSpecificCause().getMessage());
-        return build(HttpStatus.BAD_REQUEST, errors);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, request));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex, WebRequest request) {
 
         log.warn(
                 "Несоответствие типа для параметра '{}': значение='{}', ожидаемый тип={}",
@@ -106,22 +118,28 @@ public class GlobalExceptionHandler {
             errors.put(ex.getName(), "Неверное значение: " + ex.getValue());
         }
 
-        return build(HttpStatus.BAD_REQUEST, errors);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, request));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+                                                                      WebRequest request) {
 
         log.warn("Некорректный JSON или неправильный формат даты: {}", ex.getMessage(), ex);
 
         Map<String, String> errors = new HashMap<>();
         errors.put("body", "Неверное тело запроса или формат даты. Ожидается: yyyy-MM-dd'T'HH:mm:ss");
 
-        return build(HttpStatus.BAD_REQUEST, errors);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, request));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex,
+                                                            WebRequest request) {
 
         log.warn(
                 "Отсутствует параметр запроса: '{}' (тип={})",
@@ -133,30 +151,33 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         errors.put(ex.getParameterName(), "Параметр обязателен для заполнения");
 
-        return build(HttpStatus.BAD_REQUEST, errors);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, request));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, Object> handleIllegalArgument(IllegalArgumentException ex) {
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
 
         log.warn("Недопустимый аргумент: {}", ex.getMessage(), ex);
 
-        Map<String, Object> error = new HashMap<>();
-        error.put("errors", Map.of("end", ex.getMessage()));
-        error.put("status", 400);
-        error.put("timestamp", LocalDateTime.now().format(
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        ));
+        Map<String, String> errors = new HashMap<>();
+        errors.put("end", ex.getMessage());
 
-        return error;
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, errors, ex.getMessage(), request));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleUnexpected(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, WebRequest request) {
         log.error("Непредвиденная ошибка", ex);
         Map<String, String> errors = new HashMap<>();
         errors.put("error", "Внутренняя ошибка сервера");
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, errors);
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, errors,
+                        "Внутренняя ошибка сервера", request));
     }
 }
