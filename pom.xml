@@ -14,13 +14,16 @@
     </parent>
     <name>Explore With Me</name>
     <modules>
-        <module>ewm-service</module>
-        <module>stats</module>
+        <module>ewm-main</module>
+        <module>ewm-stats</module>
     </modules>
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <!-- УБИРАЕМ dependencyManagement - он создаёт циклы -->
+    <!-- Каждый сервис управляет своими зависимостями самостоятельно -->
 
     <build>
         <pluginManagement>
@@ -178,5 +181,4 @@
             </build>
         </profile>
     </profiles>
-
 </project>
