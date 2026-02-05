@@ -6,7 +6,8 @@
 	<property name="fileExtensions" value="java, properties, xml"/>
 	<module name="LineLength">
 		<property name="severity" value="ignore"/>
-		<property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+		<property name="ignorePattern"
+				  value="^package.*|^import.*|a href|href|http://|https://|ftp://|^@Query|@org\.springframework\.data\.jpa\.repository\.Query"/>
 		<property name="max" value="120"/>
 		<metadata name="net.sf.eclipsecs.core.lastEnabledSeverity" value="inherit"/>
 	</module>
