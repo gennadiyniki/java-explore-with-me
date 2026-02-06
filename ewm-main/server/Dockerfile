@@ -13,7 +13,7 @@ WORKDIR /app
 # Копируем JAR
 COPY target/${JAR_FILE} app.jar
 
-# ENV для профиля (опционально, если docker-compose не переопределяет)
+# ENV для профиля (если docker-compose не переопределяет)
 ENV SPRING_PROFILES_ACTIVE=docker
 
 # Экспонируем порт
