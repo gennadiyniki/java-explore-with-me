@@ -17,7 +17,7 @@ COPY target/${JAR_FILE} app.jar
 ENV SPRING_PROFILES_ACTIVE=docker
 
 # Экспонируем порт
-EXPOSE 8080
+EXPOSE 8081
 
 # HEALTHCHECK (опционально, для docker-compose health)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
