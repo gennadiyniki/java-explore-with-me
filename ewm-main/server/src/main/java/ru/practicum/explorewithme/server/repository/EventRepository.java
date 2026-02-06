@@ -19,19 +19,7 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     boolean existsByCategoryId(Long categoryId);
 
     // Поиск публичных событий с фильтрами
-    @Query("""
-    SELECT e FROM Event e
-    WHERE (LOWER(e.annotation) LIKE LOWER(CONCAT('%', :text, '%'))
-       OR LOWER(e.description) LIKE LOWER(CONCAT('%', :text, '%'))
-       OR LOWER(e.title) LIKE LOWER(CONCAT('%', :text, '%')))
-      AND (:categories IS NULL OR e.category.id IN :categories)
-      AND e.state = :publishedState
-      AND (:paid IS NULL OR e.paid = :paid)
-      AND e.eventDate BETWEEN :rangeStart AND :rangeEnd
-      AND (:onlyAvailable IS NULL OR e.participantLimit = 0
-           OR e.participantLimit > (SELECT COUNT(r) FROM Request r WHERE r.event = e AND r.status = 'CONFIRMED'))
-    ORDER BY e.eventDate DESC
-    """)
+    @Query("SELECT e FROM Event e WHERE (LOWER(e.annotation) LIKE LOWER(CONCAT('%', :text, '%')) OR LOWER(e.description) LIKE LOWER(CONCAT('%', :text, '%')) OR LOWER(e.title) LIKE LOWER(CONCAT('%', :text, '%'))) AND (:categories IS NULL OR e.category.id IN :categories) AND e.state = :publishedState AND (:paid IS NULL OR e.paid = :paid) AND e.eventDate BETWEEN :rangeStart AND :rangeEnd AND (:onlyAvailable IS NULL OR e.participantLimit = 0 OR e.participantLimit > (SELECT COUNT(r) FROM Request r WHERE r.event = e AND r.status = 'CONFIRMED')) ORDER BY e.eventDate DESC")
     Page<Event> findPublicEvents(
             @Param("text") String text,
             @Param("categories") List<Long> categories,
