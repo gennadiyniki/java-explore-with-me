@@ -15,8 +15,11 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static ru.practicum.explorewithme.stats.dto.Constants.FORMATTER;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,7 +28,31 @@ import java.util.stream.Collectors;
 public class StatsController {
     private final StatServiceImpl statServiceImpl;
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private LocalDateTime parseDateTime(String dateTimeStr) {
+        try {
+            // Сначала декодируем URL
+            String decoded = URLDecoder.decode(dateTimeStr, StandardCharsets.UTF_8.toString());
+
+            // Пробуем ISO формат (с 'T')
+            try {
+                return LocalDateTime.parse(decoded, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            } catch (DateTimeParseException e1) {
+                // Пробуем формат с пробелом (старый)
+                try {
+                    return LocalDateTime.parse(decoded, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                } catch (DateTimeParseException e2) {
+                    // Пробуем без секунд
+                    try {
+                        return LocalDateTime.parse(decoded, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                    } catch (DateTimeParseException e3) {
+                        throw new IllegalArgumentException("Неверный формат даты: " + decoded);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Ошибка обработки даты: " + dateTimeStr, e);
+        }
+    }
 
     @PostMapping("/hit")
     public ResponseEntity<EndpointHit> hit(@Valid @RequestBody EndpointHit endpointHit) {
@@ -53,8 +80,8 @@ public class StatsController {
 
             log.info("Decoded params: start='{}', end='{}'", start, end);
 
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
+            LocalDateTime startDate = LocalDateTime.parse(start, DateTimeFormatter.ofPattern(FORMATTER));
+            LocalDateTime endDate = LocalDateTime.parse(end, DateTimeFormatter.ofPattern(FORMATTER));
 
             log.info("Parsed dates: start={}, end={}", startDate, endDate);
 
@@ -93,8 +120,8 @@ public class StatsController {
 
             log.info("Decoded params: start='{}', end='{}'", start, end);
 
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
+            LocalDateTime startDate = LocalDateTime.parse(start, DateTimeFormatter.ofPattern(FORMATTER));
+            LocalDateTime endDate = LocalDateTime.parse(end, DateTimeFormatter.ofPattern(FORMATTER));
 
             log.info("Parsed dates: start={}, end={}", startDate, endDate);
 
@@ -147,8 +174,8 @@ public class StatsController {
 
             log.info("Decoded params: start='{}', end='{}'", start, end);
 
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
+            LocalDateTime startDate = LocalDateTime.parse(start, DateTimeFormatter.ofPattern(FORMATTER));
+            LocalDateTime endDate = LocalDateTime.parse(end, DateTimeFormatter.ofPattern(FORMATTER));
 
             log.info("Parsed dates: start={}, end={}", startDate, endDate);
 
