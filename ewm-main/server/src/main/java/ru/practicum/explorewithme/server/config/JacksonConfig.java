@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.server.config;
+/*package ru.practicum.explorewithme.server.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -32,4 +32,4 @@ public class JacksonConfig {
 
         return mapper;
     }
-}
+}*/
