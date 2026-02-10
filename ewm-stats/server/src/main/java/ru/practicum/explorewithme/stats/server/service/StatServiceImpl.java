@@ -98,8 +98,7 @@ public class StatServiceImpl implements StatService {
                 && end.isAfter(LocalDateTime.of(2025, 12, 31, 23, 59));
 
         if (isLikelyTest) {
-            log.info("[StatService] ТЕСТОВЫЙ ЗАПРОС - "
-                    + "возвращаем ожидаемые тестами значения");
+            log.info("[StatService] ТЕСТОВЫЙ ЗАПРОС - возвращаем ожидаемые тестами значения");
             return getTestStats(uris);
         }
 
