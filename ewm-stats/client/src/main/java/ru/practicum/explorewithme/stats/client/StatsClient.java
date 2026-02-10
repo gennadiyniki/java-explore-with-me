@@ -3,7 +3,6 @@ package ru.practicum.explorewithme.stats.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -25,15 +24,21 @@ import java.util.List;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class StatsClient {
     private final RestTemplate restTemplate;
     private static final String STATS_SERVER_URL = "http://localhost:9090";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // Конструктор для настройки RestTemplate
+    // Единственный конструктор, который создает и настраивает RestTemplate
     public StatsClient() {
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = createRestTemplate();
+        log.info("=== STATS CLIENT INITIALIZED ===");
+    }
+
+    private RestTemplate createRestTemplate() {
+        log.debug("Creating RestTemplate with LocalDateTime support");
+
+        RestTemplate restTemplate = new RestTemplate();
 
         // Настраиваем ObjectMapper для правильной сериализации LocalDateTime
         ObjectMapper mapper = new ObjectMapper();
@@ -46,7 +51,9 @@ public class StatsClient {
         converter.setObjectMapper(mapper);
 
         // Добавляем конвертер в RestTemplate (в начало списка)
-        this.restTemplate.getMessageConverters().add(0, converter);
+        restTemplate.getMessageConverters().add(0, converter);
+
+        return restTemplate;
     }
 
     public void saveHit(EndpointHit hit) {
@@ -58,15 +65,24 @@ public class StatsClient {
             String url = STATS_SERVER_URL + "/hit";
             log.debug("Sending POST to: {}", url);
 
+            // Логируем что отправляем
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            String json = mapper.writeValueAsString(hit);
+            log.debug("JSON being sent: {}", json);
+
             ResponseEntity<EndpointHit> response = restTemplate.postForEntity(
                     url,
                     hit,
                     EndpointHit.class
             );
 
-            log.info("Hit saved successfully. Status: {}", response.getStatusCode());
+            log.info("Hit saved successfully. Status: {}, Body: {}",
+                    response.getStatusCode(), response.getBody());
         } catch (Exception e) {
             log.error("Failed to save hit: {}", e.getMessage());
+            log.error("Full error:", e);
             // Не бросаем исключение, чтобы не ломать основной функционал
         }
     }

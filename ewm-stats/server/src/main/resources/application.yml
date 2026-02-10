@@ -1,14 +1,7 @@
-# ewm-stats/server/src/main/resources/application.yml
-server:
-  port: 9090
-
+# ewm-stats/server/src/main/resources/application-ci.yml
 spring:
-  application:
-    name: ewm-stats-server
-  
-  # По умолчанию H2 (для тестов)
   datasource:
-    url: jdbc:h2:mem:statsdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:statsdb;DB_CLOSE_DELAY=-1
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -18,7 +11,10 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     show-sql: false
 
+server:
+  port: 9090
+
 logging:
   level:
-    root: INFO
+    root: WARN
     ru.practicum: DEBUG
