@@ -3,7 +3,7 @@ package ru.practicum.explorewithme.stats.server.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import ru.practicum.explorewithme.stats.dto.ViewStats;
+import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
 import ru.practicum.explorewithme.stats.server.entity.Hit;
 
 import java.time.LocalDateTime;
@@ -19,9 +19,9 @@ public interface HitRepository extends JpaRepository<Hit, Long> {
             "AND (:uris IS NULL OR h.uri IN :uris) " +
             "GROUP BY h.app, h.uri " +
             "ORDER BY COUNT(h) DESC")
-    List<ViewStats> findStats(@Param("start") LocalDateTime start,
-                              @Param("end") LocalDateTime end,
-                              @Param("uris") List<String> uris);
+    List<ViewStatsDto> findStats(@Param("start") LocalDateTime start,
+                                 @Param("end") LocalDateTime end,
+                                 @Param("uris") List<String> uris);
 
     // Получить уникальную статистику - считаем УНИКАЛЬНЫЕ IP
     @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStats(h.app, h.uri, COUNT(DISTINCT h.ip)) " +
@@ -30,9 +30,9 @@ public interface HitRepository extends JpaRepository<Hit, Long> {
             "AND (:uris IS NULL OR h.uri IN :uris) " +
             "GROUP BY h.app, h.uri " +
             "ORDER BY COUNT(DISTINCT h.ip) DESC")
-    List<ViewStats> findUniqueStats(@Param("start") LocalDateTime start,
-                                    @Param("end") LocalDateTime end,
-                                    @Param("uris") List<String> uris);
+    List<ViewStatsDto> findUniqueStats(@Param("start") LocalDateTime start,
+                                       @Param("end") LocalDateTime end,
+                                       @Param("uris") List<String> uris);
 
     // Найти по URI в период времени
     List<Hit> findAllByUriAndTimestampBetween(String uri, LocalDateTime start, LocalDateTime end);

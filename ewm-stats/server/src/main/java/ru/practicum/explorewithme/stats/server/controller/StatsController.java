@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
-import ru.practicum.explorewithme.stats.dto.ViewStats;
+import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
 import ru.practicum.explorewithme.stats.server.service.StatServiceImpl;
 
 import java.time.LocalDateTime;
@@ -37,10 +37,10 @@ public class StatsController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<List<ViewStats>> getStats(@RequestParam String start,
-                                                    @RequestParam String end,
-                                                    @RequestParam(required = false) List<String> uris,
-                                                    @RequestParam(defaultValue = "false") boolean unique) {
+    public ResponseEntity<List<ViewStatsDto>> getStats(@RequestParam String start,
+                                                       @RequestParam String end,
+                                                       @RequestParam(required = false) List<String> uris,
+                                                       @RequestParam(defaultValue = "false") boolean unique) {
         log.info("=== STATS CONTROLLER: GET /stats ===");
         log.info("Raw params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
 
@@ -61,7 +61,7 @@ public class StatsController {
                 throw new IllegalArgumentException("Неверный диапазон дат: start не может быть после end");
             }
 
-            List<ViewStats> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
+            List<ViewStatsDto> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
 
             log.info("Returning {} stats records", stats.size());
             stats.forEach(s -> log.info("  -> {}: {} hits", s.getUri(), s.getHits()));
@@ -75,7 +75,7 @@ public class StatsController {
     }
 
     @GetMapping("/events")
-    public ResponseEntity<List<ViewStats>> getEventsStats(
+    public ResponseEntity<List<ViewStatsDto>> getEventsStats(
             @RequestParam String start,
             @RequestParam String end,
             @RequestParam(required = false) List<String> uris,
@@ -101,7 +101,7 @@ public class StatsController {
                 throw new IllegalArgumentException("Неверный диапазон дат: start не может быть после end");
             }
 
-            List<ViewStats> stats;
+            List<ViewStatsDto> stats;
             if (uris == null || uris.isEmpty()) {
                 // Получаем всю статистику
                 stats = statServiceImpl.getStats(startDate, endDate, null, unique);
@@ -129,7 +129,7 @@ public class StatsController {
     }
 
     @GetMapping("/events/{id}")
-    public ResponseEntity<List<ViewStats>> getEventByIdStats(
+    public ResponseEntity<List<ViewStatsDto>> getEventByIdStats(
             @PathVariable Long id,
             @RequestParam String start,
             @RequestParam String end,
@@ -159,11 +159,11 @@ public class StatsController {
             String eventUri = "/events/" + id;
             List<String> uris = List.of(eventUri);
 
-            List<ViewStats> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
+            List<ViewStatsDto> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
 
             // Если статистики нет, возвращаем объект с 0 хитов (для тестов)
             if (stats.isEmpty()) {
-                ViewStats emptyStat = ViewStats.builder()
+                ViewStatsDto emptyStat = ViewStatsDto.builder()
                         .app("ewm-main")
                         .uri(eventUri)
                         .hits(0L)
@@ -181,7 +181,7 @@ public class StatsController {
 
             // Возвращаем пустой объект с 0 хитов при ошибке (для совместимости с тестами)
             String eventUri = "/events/" + id;
-            ViewStats errorStat = ViewStats.builder()
+            ViewStatsDto errorStat = ViewStatsDto.builder()
                     .app("ewm-main")
                     .uri(eventUri)
                     .hits(0L)

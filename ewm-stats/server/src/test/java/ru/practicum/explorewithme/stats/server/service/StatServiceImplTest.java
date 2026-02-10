@@ -5,7 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import ru.practicum.explorewithme.stats.dto.ViewStats;
+import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
 import ru.practicum.explorewithme.stats.server.repository.HitRepository;
 
 import java.time.LocalDateTime;
@@ -29,10 +29,10 @@ class StatServiceImplTest {
         LocalDateTime start = LocalDateTime.of(2025, 12, 27, 10, 0);
         LocalDateTime end = LocalDateTime.of(2025, 12, 27, 18, 0);
         List<String> uris = List.of("/events/1");
-        List<ViewStats> mockStats = List.of(new ViewStats("app", "/events/1", 5L));
+        List<ViewStatsDto> mockStats = List.of(new ViewStatsDto("app", "/events/1", 5L));
         when(hitRepository.findStats(any(), any(), any())).thenReturn(mockStats);
 
-        List<ViewStats> stats = statServiceImpl.getStats(start, end, uris, false);
+        List<ViewStatsDto> stats = statServiceImpl.getStats(start, end, uris, false);
 
         assertEquals(1, stats.size());
         assertEquals("/events/1", stats.get(0).getUri());
@@ -45,10 +45,10 @@ class StatServiceImplTest {
         LocalDateTime start = LocalDateTime.of(2025, 12, 27, 10, 0);
         LocalDateTime end = LocalDateTime.of(2025, 12, 27, 18, 0);
         List<String> uris = List.of("/events/1");
-        List<ViewStats> mockStats = List.of(new ViewStats("app", "/events/1", 3L));
+        List<ViewStatsDto> mockStats = List.of(new ViewStatsDto("app", "/events/1", 3L));
         when(hitRepository.findUniqueStats(any(), any(), any())).thenReturn(mockStats);
 
-        List<ViewStats> stats = statServiceImpl.getStats(start, end, uris, true);
+        List<ViewStatsDto> stats = statServiceImpl.getStats(start, end, uris, true);
 
         assertEquals(1, stats.size());
         assertEquals("/events/1", stats.get(0).getUri());
