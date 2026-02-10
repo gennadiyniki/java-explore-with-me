@@ -12,25 +12,21 @@ import java.util.List;
 // Репозиторий для работы со статистикой
 public interface HitRepository extends JpaRepository<Hit, Long> {
 
-    // Получить полную статистику - считаем ВСЕ хиты
-    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStats(h.app, h.uri, COUNT(h)) " +  // COUNT(h) вместо COUNT(h.id)
+    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStats(h.app, h.uri, COUNT(h)) " +
             "FROM Hit h " +
             "WHERE h.timestamp BETWEEN :start AND :end " +
-            "AND (:uris IS NULL OR h.uri IN :uris) " +
             "GROUP BY h.app, h.uri " +
             "ORDER BY COUNT(h) DESC")
-    List<ViewStats> findStats(@Param("start") LocalDateTime start,
-                              @Param("end") LocalDateTime end,
-                              @Param("uris") List<String> uris);
+    List<ViewStats> findAllStats(@Param("start") LocalDateTime start,
+                                 @Param("end") LocalDateTime end);
 
-    // Получить уникальную статистику - считаем УНИКАЛЬНЫЕ IP
-    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStats(h.app, h.uri, COUNT(DISTINCT h.ip)) " +
+    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStats(h.app, h.uri, COUNT(h)) " +
             "FROM Hit h " +
             "WHERE h.timestamp BETWEEN :start AND :end " +
-            "AND (:uris IS NULL OR h.uri IN :uris) " +
+            "AND h.uri IN :uris " +
             "GROUP BY h.app, h.uri " +
-            "ORDER BY COUNT(DISTINCT h.ip) DESC")
-    List<ViewStats> findUniqueStats(@Param("start") LocalDateTime start,
+            "ORDER BY COUNT(h) DESC")
+    List<ViewStats> findStatsByUris(@Param("start") LocalDateTime start,
                                     @Param("end") LocalDateTime end,
                                     @Param("uris") List<String> uris);
 
