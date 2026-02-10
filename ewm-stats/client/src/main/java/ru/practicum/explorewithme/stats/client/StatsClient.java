@@ -24,6 +24,9 @@ public class StatsClient {
     private static final String SERVER_URL = "http://localhost:9090";
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    public StatsClient() {
+        this.restTemplate = new RestTemplate();
+    }
     public void postHit(String app, String uri, String ip, LocalDateTime timestamp) {
         EndpointHit hit = EndpointHit.builder()
                 .app(app)
