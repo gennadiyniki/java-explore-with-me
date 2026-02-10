@@ -1,0 +1,11 @@
+# application-postgres.yml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ewm_stats
+    username: stats
+    password: stats
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
