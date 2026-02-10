@@ -49,7 +49,8 @@ public class StatsClient {
                 "/stats?start={start}&end={end}&uris={uris}&unique={unique}",
                 org.springframework.http.HttpMethod.GET,
                 null,
-                new ParameterizedTypeReference<List<ViewStats>>() {},
+                new ParameterizedTypeReference<List<ViewStats>>() {
+                },
                 parameters
         );
     }
