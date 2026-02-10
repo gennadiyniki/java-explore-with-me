@@ -1,28 +1,11 @@
-# Multi-stage build для Main Service
-FROM maven:3.9-eclipse-temurin-21 AS builder
-WORKDIR /build
-
-# Копируем pom.xml и исходники
-COPY pom.xml .
-COPY src ./src
-
-# Собираем проект
-RUN mvn clean package -DskipTests
-
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jdk
+LABEL maintainer="your-email@example.com"
+LABEL description="EWM Main Server"
+ARG JAR_FILE=ewm-main-server-0.0.1-SNAPSHOT.jar
 WORKDIR /app
-
-# Копируем собранный JAR из builder stage
-COPY --from=builder /build/target/*.jar app.jar
-
-# ENV для профиля
+COPY target/${JAR_FILE} app.jar
 ENV SPRING_PROFILES_ACTIVE=docker
-
-# Экспонируем порт
 EXPOSE 8080
-
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
   CMD curl -f http://localhost:8080/actuator/health || exit 1
-
-# Запуск
 ENTRYPOINT ["java", "-jar", "app.jar"]
