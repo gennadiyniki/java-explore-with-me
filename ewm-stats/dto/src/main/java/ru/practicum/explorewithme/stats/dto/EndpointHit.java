@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
+
 
 import java.time.LocalDateTime;
 
@@ -21,8 +21,6 @@ public class EndpointHit {
 
     private String ip;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
-
 }
