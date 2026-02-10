@@ -1,10 +1,14 @@
 package ru.practicum.explorewithme.stats.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -13,6 +17,7 @@ import ru.practicum.explorewithme.stats.dto.ViewStats;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -26,13 +31,35 @@ public class StatsClient {
     private static final String STATS_SERVER_URL = "http://localhost:9090";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    // Конструктор для настройки RestTemplate
+    public StatsClient() {
+        this.restTemplate = new RestTemplate();
+
+        // Настраиваем ObjectMapper для правильной сериализации LocalDateTime
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
+
+        // Создаем конвертер с настроенным ObjectMapper
+        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
+        converter.setObjectMapper(mapper);
+
+        // Добавляем конвертер в RestTemplate (в начало списка)
+        this.restTemplate.getMessageConverters().add(0, converter);
+    }
+
     public void saveHit(EndpointHit hit) {
         log.info("=== STATS CLIENT: POST /hit ===");
-        log.info("Saving hit: {}", hit);
+        log.info("Saving hit: app={}, uri={}, ip={}, timestamp={}",
+                hit.getApp(), hit.getUri(), hit.getIp(), hit.getTimestamp());
 
         try {
+            String url = STATS_SERVER_URL + "/hit";
+            log.debug("Sending POST to: {}", url);
+
             ResponseEntity<EndpointHit> response = restTemplate.postForEntity(
-                    STATS_SERVER_URL + "/hit",
+                    url,
                     hit,
                     EndpointHit.class
             );
@@ -69,7 +96,7 @@ public class StatsClient {
             builder.queryParam("unique", unique);
 
             String url = builder.toUriString();
-            log.info("Request URL: {}", url);
+            log.debug("Request URL: {}", url);
 
             // Выполняем запрос
             ResponseEntity<List<ViewStats>> response = restTemplate.exchange(
@@ -97,7 +124,7 @@ public class StatsClient {
         }
     }
 
-    // Метод для кодирования даты
+    // Метод для кодирования даты (требуется тестами)
     private String encodeDateTime(LocalDateTime dateTime) {
         if (dateTime == null) {
             return "";
