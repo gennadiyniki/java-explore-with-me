@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
 import java.time.LocalDateTime;
 
 @Data
@@ -16,9 +15,7 @@ import java.time.LocalDateTime;
 public class EndpointHit {
 
     private String app;
-
     private String uri;
-
     private String ip;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
