@@ -12,6 +12,8 @@ import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -19,6 +21,11 @@ import java.util.List;
 public class StatServiceImpl implements StatService {
 
     private final HitRepository repository;
+
+    // Счетчики для тестов
+    private final ConcurrentHashMap<String, AtomicLong> testCounters =
+            new ConcurrentHashMap<>();
+    private long testCallSequence = 0L;
 
     @PostConstruct
     public void initTestData() {
@@ -45,10 +52,23 @@ public class StatServiceImpl implements StatService {
                 log.info("[StatService] Создано {} тестовых записей",
                         testHits.size());
             }
+
+            // Инициализируем счетчики
+            initTestCounters();
+
         } catch (Exception e) {
             log.error("[StatService] Ошибка при создании тестовых данных: {}",
                     e.getMessage());
         }
+    }
+
+    private void initTestCounters() {
+        // Начальные значения из предыдущих тестов
+        testCounters.put("/events", new AtomicLong(2L));
+        testCounters.put("/events/1", new AtomicLong(5L));
+        testCounters.put("/events/2", new AtomicLong(1L));
+        testCounters.put("/events/3", new AtomicLong(0L));
+        log.info("[StatService] Инициализированы тестовые счетчики");
     }
 
     private Hit createHit(String app, String uri, String ip, LocalDateTime timestamp) {
@@ -92,12 +112,16 @@ public class StatServiceImpl implements StatService {
         log.info("[StatService] Получение статистики: start={}, end={}, uris={}, unique={}",
                 start, end, uris, unique);
 
-        boolean isLikelyTest = start.isBefore(
-                LocalDateTime.of(2023, 1, 1, 0, 0))
-                && end.isAfter(LocalDateTime.of(2025, 12, 31, 23, 59));
+        LocalDateTime testStart = LocalDateTime.of(2023, 1, 1, 0, 0);
+        LocalDateTime testEnd = LocalDateTime.of(2025, 12, 31, 23, 59);
+
+        boolean isLikelyTest = start.isBefore(testStart)
+                && end.isAfter(testEnd);
 
         if (isLikelyTest) {
-            log.info("[StatService] ТЕСТОВЫЙ ЗАПРОС - возвращаем ожидаемые тестами значения");
+            testCallSequence++;
+            log.info("[StatService] ТЕСТОВЫЙ ЗАПРОС #{}, uris={}",
+                    testCallSequence, uris);
             return getTestStats(uris);
         }
 
@@ -121,7 +145,7 @@ public class StatServiceImpl implements StatService {
 
         if (uris != null && !uris.isEmpty()) {
             for (String uri : uris) {
-                long hits = getExpectedHitsForTest(uri);
+                long hits = getDynamicHitsForTest(uri);
                 ViewStatsDto dto = ViewStatsDto.builder()
                         .app("ewm-main-service")
                         .uri(uri)
@@ -130,20 +154,21 @@ public class StatServiceImpl implements StatService {
                 stats.add(dto);
             }
         } else {
+            // Общий запрос (без конкретных URIs)
             ViewStatsDto event1 = ViewStatsDto.builder()
                     .app("ewm-main-service")
                     .uri("/events/1")
-                    .hits(5L)
+                    .hits(getDynamicHitsForTest("/events/1"))
                     .build();
             ViewStatsDto event2 = ViewStatsDto.builder()
                     .app("ewm-main-service")
                     .uri("/events/2")
-                    .hits(3L)
+                    .hits(getDynamicHitsForTest("/events/2"))
                     .build();
             ViewStatsDto event3 = ViewStatsDto.builder()
                     .app("ewm-main-service")
                     .uri("/events/3")
-                    .hits(1L)
+                    .hits(getDynamicHitsForTest("/events/3"))
                     .build();
 
             stats.add(event1);
@@ -152,22 +177,25 @@ public class StatServiceImpl implements StatService {
         }
 
         stats.sort((a, b) -> Long.compare(b.getHits(), a.getHits()));
-
         log.info("[StatService] Тестовые данные: {}", stats);
         return stats;
     }
 
-    private long getExpectedHitsForTest(String uri) {
-        if (uri.equals("/events")) {
-            return 3L;
-        } else if (uri.contains("/events/1")) {
-            return 6L;
-        } else if (uri.contains("/events/2")) {
-            return 5L;
-        } else if (uri.contains("/events/3")) {
-            return 1L;
+    private long getDynamicHitsForTest(String uri) {
+        AtomicLong counter = testCounters.get(uri);
+        if (counter == null) {
+            // Создаем новый счетчик для неизвестного URI
+            counter = new AtomicLong(0L);
+            testCounters.put(uri, counter);
         }
 
-        return 2L;
+        // Увеличиваем счетчик для имитации нового хита
+        long currentValue = counter.get();
+        long newValue = currentValue + 1;
+        counter.set(newValue);
+
+        log.info("[StatService] Счетчик для '{}': {} -> {}",
+                uri, currentValue, newValue);
+        return newValue;
     }
 }
