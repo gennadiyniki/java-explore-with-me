@@ -10,6 +10,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.explorewithme.event.dto.EventFullDto;
 import ru.practicum.explorewithme.event.dto.EventShortDto;
+import ru.practicum.explorewithme.stats.client.StatsClient;
+import ru.practicum.explorewithme.stats.dto.EndpointHit;
 import ru.practicum.explorewithme.server.service.EventServiceImpl;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,8 @@ import java.util.List;
 public class PublicEventController {
 
     private final EventServiceImpl eventServiceImpl;
+    private final StatsClient statsClient;
+
     private static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
     // GET /events
@@ -43,6 +47,10 @@ public class PublicEventController {
             HttpServletRequest request) {
 
         log.info("[PublicEventController] GET /events - поиск опубликованных событий");
+
+        // ОТПРАВЛЯЕМ СТАТИСТИКУ
+        sendHitStats(request);
+
         log.debug("[PublicEventController] Параметры фильтрации: text='{}', categories={}, paid={}, onlyAvailable={}, sort={}",
                 text, categories, paid, onlyAvailable, sort);
         log.debug("[PublicEventController] Диапазон дат: {} - {}, пагинация: from={}, size={}, ip={}",
@@ -73,10 +81,34 @@ public class PublicEventController {
         log.info("[PublicEventController] GET /events/{} - получение опубликованного события, ip={}",
                 id, remoteAddr);
 
+        // ОТПРАВЛЯЕМ СТАТИСТИКУ
+        sendHitStats(request);
+
         EventFullDto event = eventServiceImpl.getPublicEvent(id, remoteAddr);
         log.debug("[PublicEventController] Событие найдено: id={}, title='{}', views={}",
                 id, event.getTitle(), event.getViews());
 
         return event;
+    }
+
+    /**
+     * Отправляет статистику о просмотре в StatsService
+     */
+    private void sendHitStats(HttpServletRequest request) {
+        try {
+            EndpointHit hit = EndpointHit.builder()
+                    .app("ewm-main-service")
+                    .uri(request.getRequestURI())
+                    .ip(request.getRemoteAddr())
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+            log.debug("[PublicEventController] Отправка статистики: {}", hit);
+            statsClient.saveHit(hit);
+
+        } catch (Exception e) {
+            log.error("[PublicEventController] Ошибка при отправке статистики: {}", e.getMessage());
+            // Не бросаем исключение, чтобы не ломать основной функционал
+        }
     }
 }
