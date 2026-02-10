@@ -40,7 +40,7 @@ public interface HitRepository extends JpaRepository<Hit, Long> {
     // Найти все в период времени
     List<Hit> findAllByTimestampBetween(LocalDateTime start, LocalDateTime end);
 
-    // Найти уникальные по URI, APP и IP в период времени
+    // Найти уникальные по URI,
     @Query("SELECT h FROM Hit h WHERE h.timestamp BETWEEN :start AND :end GROUP BY h.uri, h.app, h.ip")
     List<Hit> findDistinctByTimestampBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
