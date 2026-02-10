@@ -13,15 +13,17 @@ import ru.practicum.explorewithme.compilation.dto.NewCompilationDto;
 import ru.practicum.explorewithme.compilation.dto.UpdateCompilationRequest;
 import ru.practicum.explorewithme.event.dto.EventShortDto;
 import ru.practicum.explorewithme.server.repository.CompilationRepository;
+import ru.practicum.explorewithme.server.repository.RequestRepository;
 import ru.practicum.explorewithme.server.entity.Compilation;
 import ru.practicum.explorewithme.server.entity.Event;
 import ru.practicum.explorewithme.server.exception.EntityNotFoundException;
 import ru.practicum.explorewithme.server.mapper.CompilationMapper;
 import ru.practicum.explorewithme.server.mapper.EventMapper;
+import ru.practicum.explorewithme.stats.client.StatsClient;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,7 +32,9 @@ import java.util.stream.Collectors;
 public class CompilationServiceImpl implements CompilationService {
 
     private final CompilationRepository compilationRepository;
-    private final EventService eventService;  // Изменено с EventServiceImpl на интерфейс EventService
+    private final RequestRepository requestRepository;
+    private final StatsClient statsClient;
+    private final EventService eventService;
     private final CompilationMapper compilationMapper;
     private final EventMapper eventMapper;
 
@@ -60,7 +64,7 @@ public class CompilationServiceImpl implements CompilationService {
         if (newCompilation.getEvents() != null && !newCompilation.getEvents().isEmpty()) {
             newCompilation.getEvents().forEach(eventId -> {
                 try {
-                    events.add(eventService.getById(eventId));  // Используем интерфейс
+                    events.add(eventService.getById(eventId));
                 } catch (Exception e) {
                     log.error("[CompilationService] Ошибка при получении события {}: {}", eventId, e.getMessage());
                     throw e;
@@ -75,11 +79,8 @@ public class CompilationServiceImpl implements CompilationService {
         log.info("[CompilationService] Подборка создана: id={}, title={}, events={}",
                 compilation.getId(), compilation.getTitle(), events.size());
 
-        List<EventShortDto> eventDtos = events.stream()
-                .map(e -> eventMapper.toShortDto(e,
-                        eventService.getConfirmedCount(e.getId()),
-                        eventService.getViewsForEvent(e.getId())))
-                .collect(Collectors.toList());
+        // Batch получение статистики для всех событий
+        List<EventShortDto> eventDtos = getEventShortDtosBatch(new ArrayList<>(events));
 
         return compilationMapper.toDto(compilation, eventDtos);
     }
@@ -111,7 +112,7 @@ public class CompilationServiceImpl implements CompilationService {
         if (update.getEvents() != null && !update.getEvents().isEmpty()) {
             update.getEvents().forEach(eventId -> {
                 try {
-                    events.add(eventService.getById(eventId));  // Используем интерфейс
+                    events.add(eventService.getById(eventId));
                 } catch (Exception e) {
                     log.error("[CompilationService] Ошибка при получении события {}: {}", eventId, e.getMessage());
                     throw e;
@@ -124,11 +125,8 @@ public class CompilationServiceImpl implements CompilationService {
 
         log.info("[CompilationService] Подборка обновлена: id={}, events={}", compId, events.size());
 
-        List<EventShortDto> eventDtos = events.stream()
-                .map(e -> eventMapper.toShortDto(e,
-                        eventService.getConfirmedCount(e.getId()),
-                        eventService.getViewsForEvent(e.getId())))
-                .collect(Collectors.toList());
+        // Batch получение статистики для всех событий
+        List<EventShortDto> eventDtos = getEventShortDtosBatch(new ArrayList<>(events));
 
         return compilationMapper.toDto(compilation, eventDtos);
     }
@@ -165,13 +163,26 @@ public class CompilationServiceImpl implements CompilationService {
 
         log.debug("[CompilationService] Найдено {} подборок", compilations.size());
 
+        // Собираем ВСЕ события из ВСЕХ подборок
+        List<Event> allEvents = compilations.stream()
+                .filter(comp -> comp.getEvents() != null)
+                .flatMap(comp -> comp.getEvents().stream())
+                .collect(Collectors.toList());
+
+        // Batch получение статистики для всех событий
+        Map<Long, EventShortDto> eventDtoMap = getEventShortDtosBatch(allEvents).stream()
+                .collect(Collectors.toMap(
+                        dto -> dto.getId(),
+                        dto -> dto
+                ));
+
+        // Собираем результат
         return compilations.stream()
                 .map(comp -> {
                     List<EventShortDto> eventDtos = comp.getEvents() != null ?
                             comp.getEvents().stream()
-                                    .map(e -> eventMapper.toShortDto(e,
-                                            eventService.getConfirmedCount(e.getId()),
-                                            eventService.getViewsForEvent(e.getId())))
+                                    .map(event -> eventDtoMap.get(event.getId()))
+                                    .filter(Objects::nonNull)
                                     .collect(Collectors.toList()) : List.of();
                     return compilationMapper.toDto(comp, eventDtos);
                 })
@@ -189,14 +200,81 @@ public class CompilationServiceImpl implements CompilationService {
                     return new EntityNotFoundException(String.format(COMPILATION_NOT_FOUND, compId));
                 });
 
-        List<EventShortDto> eventDtos = compilation.getEvents() != null ?
-                compilation.getEvents().stream()
-                        .map(e -> eventMapper.toShortDto(e,
-                                eventService.getConfirmedCount(e.getId()),
-                                eventService.getViewsForEvent(e.getId())))
-                        .collect(Collectors.toList()) : List.of();
+        if (compilation.getEvents() == null || compilation.getEvents().isEmpty()) {
+            return compilationMapper.toDto(compilation, List.of());
+        }
+
+        // Batch получение статистики для всех событий подборки
+        List<EventShortDto> eventDtos = getEventShortDtosBatch(new ArrayList<>(compilation.getEvents()));
 
         log.debug("[CompilationService] Подборка найдена: id={}, events={}", compId, eventDtos.size());
         return compilationMapper.toDto(compilation, eventDtos);
+    }
+
+    private List<EventShortDto> getEventShortDtosBatch(List<Event> events) {
+        if (events == null || events.isEmpty()) {
+            return List.of();
+        }
+
+        // Собираем ID всех событий
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
+                .collect(Collectors.toList());
+
+        // 1 запрос для получения подтвержденных заявок для всех событий
+        Map<Long, Long> confirmedCounts = requestRepository.getConfirmedCountsMap(eventIds);
+
+        // 1 запрос для получения просмотров для всех событий
+        Map<Long, Long> eventViews = getViewsBatch(eventIds);
+
+        // 1 Создаем DTO для всех событий
+        return events.stream()
+                .map(event -> eventMapper.toShortDto(
+                        event,
+                        confirmedCounts.getOrDefault(event.getId(), 0L),
+                        eventViews.getOrDefault(event.getId(), 0L)
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private Map<Long, Long> getViewsBatch(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            // Создаем URIs для всех событий
+            List<String> uris = eventIds.stream()
+                    .map(id -> "/events/" + id)
+                    .collect(Collectors.toList());
+
+            // Делаем 1 запрос к сервису статистики
+            String start = LocalDateTime.now().minusYears(100).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            String end = LocalDateTime.now().plusYears(100).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+            var response = statsClient.getStats(start, end, uris, true);
+
+            if (response.getBody() != null) {
+                return response.getBody().stream()
+                        .collect(Collectors.toMap(
+                                stats -> extractEventIdFromUri(stats.getUri()),
+                                stats -> stats.getHits() != null ? stats.getHits() : 0L
+                        ));
+            }
+        } catch (Exception e) {
+            log.warn("[CompilationService] Ошибка при получении статистики: {}", e.getMessage());
+        }
+
+        return Collections.emptyMap();
+    }
+
+    private Long extractEventIdFromUri(String uri) {
+        try {
+            String[] parts = uri.split("/");
+            return Long.parseLong(parts[parts.length - 1]);
+        } catch (Exception e) {
+            log.warn("[CompilationService] Не удалось извлечь ID события из URI: {}", uri);
+            return -1L;
+        }
     }
 }

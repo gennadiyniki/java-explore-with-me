@@ -73,8 +73,4 @@ public class Event {
 
     @Column(nullable = false, length = 120)
     private String title;
-
-    @OneToMany(mappedBy = "event", fetch = FetchType.LAZY)
-    @ToString.Exclude
-    private Set<Request> requests;
 }

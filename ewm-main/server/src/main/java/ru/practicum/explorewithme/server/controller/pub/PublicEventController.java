@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.server.controller;
+package ru.practicum.explorewithme.server.controller.pub;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Positive;

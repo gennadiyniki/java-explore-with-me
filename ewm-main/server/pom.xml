@@ -29,6 +29,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Actuator (уже есть, хорошо!) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
 
         <!-- Database -->
         <dependency>
@@ -36,7 +41,6 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- ДОБАВЬТЕ ЭТУ СТРОКУ ДЛЯ H2 -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
@@ -54,32 +58,24 @@
         <dependency>
             <groupId>ru.practicum</groupId>
             <artifactId>ewm-main-dto</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
-
-        <dependency>
-            <groupId>ru.practicum</groupId>
-            <artifactId>ewm-main-client</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
+        <!--stats-client из ewm-stats -->
         <dependency>
             <groupId>ru.practicum</groupId>
             <artifactId>ewm-stats-client</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
 
+        </dependency>
+        <dependency>
+            <groupId>ru.practicum</groupId>
+            <artifactId>ewm-stats-dto</artifactId>
+        </dependency>
 
         <!-- Тестирование -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
     </dependencies>
 
