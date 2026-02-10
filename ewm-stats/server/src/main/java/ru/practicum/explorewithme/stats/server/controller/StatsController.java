@@ -3,190 +3,48 @@ package ru.practicum.explorewithme.stats.server.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
 import ru.practicum.explorewithme.stats.dto.ViewStats;
 import ru.practicum.explorewithme.stats.server.service.StatServiceImpl;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
 @Slf4j
-@Validated
 public class StatsController {
     private final StatServiceImpl statServiceImpl;
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     @PostMapping("/hit")
     public ResponseEntity<EndpointHit> hit(@Valid @RequestBody EndpointHit endpointHit) {
-        log.info("=== STATS CONTROLLER: POST /hit ===");
-        log.info("Received: {}", endpointHit);
-
+        log.info("POST /hit: {}", endpointHit);
         EndpointHit savedHit = statServiceImpl.saveHit(endpointHit);
-
-        log.info("=== STATS CONTROLLER: Hit saved ===");
         return ResponseEntity.status(HttpStatus.CREATED).body(savedHit);
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<List<ViewStats>> getStats(@RequestParam String start,
-                                                    @RequestParam String end,
-                                                    @RequestParam(required = false) List<String> uris,
-                                                    @RequestParam(defaultValue = "false") boolean unique) {
-        log.info("=== STATS CONTROLLER: GET /stats ===");
-        log.info("Raw params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
-
-        try {
-            // Декодируем пробелы если они закодированы
-            start = start.replace("%20", " ");
-            end = end.replace("%20", " ");
-
-            log.info("Decoded params: start='{}', end='{}'", start, end);
-
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
-
-            log.info("Parsed dates: start={}, end={}", startDate, endDate);
-
-            if (startDate.isAfter(endDate)) {
-                log.error("Invalid date range: start {} is after end {}", startDate, endDate);
-                throw new IllegalArgumentException("Неверный диапазон дат: start не может быть после end");
-            }
-
-            List<ViewStats> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
-
-            log.info("Returning {} stats records", stats.size());
-            stats.forEach(s -> log.info("  -> {}: {} hits", s.getUri(), s.getHits()));
-
-            return ResponseEntity.ok(stats);
-
-        } catch (Exception e) {
-            log.error("Error processing stats request: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    @GetMapping("/events")
-    public ResponseEntity<List<ViewStats>> getEventsStats(
-            @RequestParam String start,
-            @RequestParam String end,
+    public ResponseEntity<List<ViewStats>> getStats(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime start,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime end,
             @RequestParam(required = false) List<String> uris,
             @RequestParam(defaultValue = "false") boolean unique) {
 
-        log.info("=== STATS CONTROLLER: GET /events ===");
-        log.info("Params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
+        log.info("GET /stats: start={}, end={}, uris={}, unique={}", start, end, uris, unique);
 
-        try {
-            // Декодируем пробелы
-            start = start.replace("%20", " ");
-            end = end.replace("%20", " ");
-
-            log.info("Decoded params: start='{}', end='{}'", start, end);
-
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
-
-            log.info("Parsed dates: start={}, end={}", startDate, endDate);
-
-            if (startDate.isAfter(endDate)) {
-                log.error("Invalid date range: start {} is after end {}", startDate, endDate);
-                throw new IllegalArgumentException("Неверный диапазон дат: start не может быть после end");
-            }
-
-            List<ViewStats> stats;
-            if (uris == null || uris.isEmpty()) {
-                // Получаем всю статистику
-                stats = statServiceImpl.getStats(startDate, endDate, null, unique);
-                // Фильтруем только события (URI начинаются с /events)
-                stats = stats.stream()
-                        .filter(stat -> stat.getUri() != null && stat.getUri().startsWith("/events"))
-                        .collect(Collectors.toList());
-            } else {
-                // Получаем только указанные события
-                stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
-            }
-
-            // Сортировка по убыванию hits (требуется тестами)
-            stats.sort((a, b) -> Long.compare(b.getHits(), a.getHits()));
-
-            log.info("Returning {} event stats records", stats.size());
-            stats.forEach(s -> log.debug("  -> {}: {} hits", s.getUri(), s.getHits()));
-
-            return ResponseEntity.ok(stats);
-
-        } catch (Exception e) {
-            log.error("Error processing /events stats: {}", e.getMessage(), e);
+        if (start.isAfter(end)) {
+            log.error("Invalid date range: start {} is after end {}", start, end);
             return ResponseEntity.badRequest().build();
         }
-    }
 
-    @GetMapping("/events/{id}")
-    public ResponseEntity<List<ViewStats>> getEventByIdStats(
-            @PathVariable Long id,
-            @RequestParam String start,
-            @RequestParam String end,
-            @RequestParam(defaultValue = "false") boolean unique) {
+        List<ViewStats> stats = statServiceImpl.getStats(start, end, uris, unique);
 
-        log.info("=== STATS CONTROLLER: GET /events/{} ===", id);
-        log.info("Params: start='{}', end='{}', unique={}", start, end, unique);
+        log.info("Returning {} stats records", stats.size());
 
-        try {
-            // Декодируем пробелы
-            start = start.replace("%20", " ");
-            end = end.replace("%20", " ");
-
-            log.info("Decoded params: start='{}', end='{}'", start, end);
-
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
-
-            log.info("Parsed dates: start={}, end={}", startDate, endDate);
-
-            if (startDate.isAfter(endDate)) {
-                log.error("Invalid date range: start {} is after end {}", startDate, endDate);
-                throw new IllegalArgumentException("Неверный диапазон дат: start не может быть после end");
-            }
-
-            // Создаем URI для конкретного события
-            String eventUri = "/events/" + id;
-            List<String> uris = List.of(eventUri);
-
-            List<ViewStats> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
-
-            // Если статистики нет, возвращаем объект с 0 хитов (для тестов)
-            if (stats.isEmpty()) {
-                ViewStats emptyStat = ViewStats.builder()
-                        .app("ewm-main")
-                        .uri(eventUri)
-                        .hits(0L)
-                        .build();
-                stats = List.of(emptyStat);
-                log.info("No stats found for event {}, returning zero hits", id);
-            } else {
-                log.info("Found stats for event {}: {} hits", id, stats.get(0).getHits());
-            }
-
-            return ResponseEntity.ok(stats);
-
-        } catch (Exception e) {
-            log.error("Error processing /events/{} stats: {}", id, e.getMessage(), e);
-
-            // Возвращаем пустой объект с 0 хитов при ошибке (для совместимости с тестами)
-            String eventUri = "/events/" + id;
-            ViewStats errorStat = ViewStats.builder()
-                    .app("ewm-main")
-                    .uri(eventUri)
-                    .hits(0L)
-                    .build();
-            return ResponseEntity.ok(List.of(errorStat));
-        }
+        return ResponseEntity.ok(stats);
     }
 }
