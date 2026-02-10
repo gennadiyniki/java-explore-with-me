@@ -17,7 +17,7 @@ import ru.practicum.explorewithme.server.repository.EventRepository;
 import ru.practicum.explorewithme.server.repository.RequestRepository;
 import ru.practicum.explorewithme.stats.client.StatsClient;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
-import ru.practicum.explorewithme.stats.dto.ViewStats;
+import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -483,7 +483,7 @@ public class EventServiceImpl implements EventService {
             LocalDateTime end = LocalDateTime.now().plusYears(100);
 
             // Получаем статистику - unique=false для всех просмотров
-            List<ViewStats> stats = statsClient.getStats(start, end, uris, false);
+            List<ViewStatsDto> stats = statsClient.getStats(start, end, uris, false);
 
             log.debug("[EventService] Получено {} записей статистики для {} событий",
                     stats != null ? stats.size() : 0, eventIds.size());
@@ -493,7 +493,7 @@ public class EventServiceImpl implements EventService {
                         .filter(stat -> stat != null && stat.getUri() != null && stat.getHits() != null)
                         .collect(Collectors.toMap(
                                 stat -> extractEventIdFromUri(stat.getUri()),
-                                ViewStats::getHits,
+                                ViewStatsDto::getHits,
                                 (h1, h2) -> h1 // если дубликаты, берем первое значение
                         ));
             }
