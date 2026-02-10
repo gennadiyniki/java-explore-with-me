@@ -1,9 +1,11 @@
 package ru.practicum.explorewithme.stats.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 
@@ -19,6 +21,8 @@ public class EndpointHit {
 
     private String ip;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime timestamp;
 
 }
