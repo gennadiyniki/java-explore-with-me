@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
-import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
+import ru.practicum.explorewithme.stats.dto.ViewStats;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -87,7 +87,7 @@ public class StatsClient {
         }
     }
 
-    public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
+    public List<ViewStats> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
         log.info("=== STATS CLIENT: GET /stats ===");
         log.info("Params: start={}, end={}, uris={}, unique={}", start, end, uris, unique);
 
@@ -115,14 +115,14 @@ public class StatsClient {
             log.debug("Request URL: {}", url);
 
             // Выполняем запрос
-            ResponseEntity<List<ViewStatsDto>> response = restTemplate.exchange(
+            ResponseEntity<List<ViewStats>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     null,
-                    new ParameterizedTypeReference<List<ViewStatsDto>>() {}
+                    new ParameterizedTypeReference<List<ViewStats>>() {}
             );
 
-            List<ViewStatsDto> stats = response.getBody();
+            List<ViewStats> stats = response.getBody();
             log.info("Response received. Status: {}, Count: {}",
                     response.getStatusCode(),
                     stats != null ? stats.size() : 0);
@@ -161,13 +161,13 @@ public class StatsClient {
     }
 
     // Метод для получения статистики по одному URI
-    public List<ViewStatsDto> getStatsForUri(LocalDateTime start, LocalDateTime end, String uri, boolean unique) {
+    public List<ViewStats> getStatsForUri(LocalDateTime start, LocalDateTime end, String uri, boolean unique) {
         return getStats(start, end, Collections.singletonList(uri), unique);
     }
 
     // Метод для получения хитов по одному URI
     public Long getHitsForUri(LocalDateTime start, LocalDateTime end, String uri, boolean unique) {
-        List<ViewStatsDto> stats = getStatsForUri(start, end, uri, unique);
+        List<ViewStats> stats = getStatsForUri(start, end, uri, unique);
         if (stats.isEmpty()) {
             return 0L;
         }

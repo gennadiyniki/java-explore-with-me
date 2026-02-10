@@ -1,19 +1,21 @@
-FROM eclipse-temurin:21-jdk
+# Multi-stage build для Main Service
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /build
 
-# Метаданные
-LABEL maintainer="your-email@example.com"
-LABEL description="EWM Main Server"
+# Копируем pom.xml и исходники
+COPY pom.xml .
+COPY src ./src
 
-# Аргумент для версии JAR (по умолчанию SNAPSHOT)
-ARG JAR_FILE=ewm-main-server-0.0.1-SNAPSHOT.jar
+# Собираем проект
+RUN mvn clean package -DskipTests
 
-# Рабочая директория
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Копируем JAR
-COPY target/${JAR_FILE} app.jar
+# Копируем собранный JAR из builder stage
+COPY --from=builder /build/target/*.jar app.jar
 
-# ENV для профиля (если docker-compose не переопределяет)
+# ENV для профиля
 ENV SPRING_PROFILES_ACTIVE=docker
 
 # Экспонируем порт

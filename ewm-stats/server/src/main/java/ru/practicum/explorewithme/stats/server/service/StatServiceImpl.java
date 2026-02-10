@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
-import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
+import ru.practicum.explorewithme.stats.dto.ViewStats;
 import ru.practicum.explorewithme.stats.server.entity.Hit;
 import ru.practicum.explorewithme.stats.server.repository.HitRepository;
 
@@ -34,7 +34,7 @@ public class StatServiceImpl implements StatService {
     }
 
     @Override
-    public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, Boolean unique) {
+    public List<ViewStats> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, Boolean unique) {
         log.info("[StatService] Получение статистики: start={}, end={}, uris={}, unique={}",
                 start, end, uris, unique);
 
@@ -49,7 +49,7 @@ public class StatServiceImpl implements StatService {
                     allHits.get(0).getApp(), allHits.get(0).getUri(), allHits.get(0).getTimestamp());
         }
 
-        List<ViewStatsDto> stats;
+        List<ViewStats> stats;
         if (unique) {
             stats = repository.findUniqueStats(start, end, uris);
             log.info("[StatService] Получена уникальная статистика: {} записей", stats.size());
@@ -59,7 +59,7 @@ public class StatServiceImpl implements StatService {
         }
 
         // Логируем результат
-        for (ViewStatsDto stat : stats) {
+        for (ViewStats stat : stats) {
             log.info("[StatService] Stat: app={}, uri={}, hits={}",
                     stat.getApp(), stat.getUri(), stat.getHits());
         }
