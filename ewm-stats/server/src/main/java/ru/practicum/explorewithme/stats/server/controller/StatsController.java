@@ -15,6 +15,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,7 +26,50 @@ import java.util.stream.Collectors;
 public class StatsController {
     private final StatServiceImpl statServiceImpl;
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter SPACE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * Парсит строку даты-времени, поддерживая оба формата: ISO и с пробелом
+     */
+    private LocalDateTime parseDateTime(String dateTimeStr) {
+        if (dateTimeStr == null || dateTimeStr.trim().isEmpty()) {
+            throw new IllegalArgumentException("Дата не может быть пустой");
+        }
+
+        String decoded = dateTimeStr;
+        try {
+            // Пробуем декодировать URL
+            decoded = URLDecoder.decode(dateTimeStr, StandardCharsets.UTF_8.toString());
+        } catch (Exception e) {
+            log.debug("URL decode не требуется для: {}", dateTimeStr);
+        }
+
+        decoded = decoded.trim();
+
+        // Пробуем ISO формат (с 'T'): "2024-05-01T10:00:00"
+        try {
+            return LocalDateTime.parse(decoded, ISO_FORMATTER);
+        } catch (DateTimeParseException e1) {
+            log.debug("ISO parse failed for '{}': {}", decoded, e1.getMessage());
+
+            // Пробуем формат с пробелом: "2024-05-01 10:00:00"
+            try {
+                return LocalDateTime.parse(decoded, SPACE_FORMATTER);
+            } catch (DateTimeParseException e2) {
+                log.debug("Space format parse failed for '{}': {}", decoded, e2.getMessage());
+
+                // Пробуем без секунд: "2024-05-01 10:00"
+                try {
+                    return LocalDateTime.parse(decoded, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                } catch (DateTimeParseException e3) {
+                    throw new IllegalArgumentException(
+                            String.format("Неверный формат даты: '%s'. Ожидается: 'yyyy-MM-ddTHH:mm:ss' или 'yyyy-MM-dd HH:mm:ss'", decoded)
+                    );
+                }
+            }
+        }
+    }
 
     @PostMapping("/hit")
     public ResponseEntity<EndpointHit> hit(@Valid @RequestBody EndpointHit endpointHit) {
@@ -47,14 +91,9 @@ public class StatsController {
         log.info("Raw params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
 
         try {
-            // Полное URL декодирование
-            start = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
-            end = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
-
-            log.info("Decoded params: start='{}', end='{}'", start, end);
-
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
+            // Парсим даты с поддержкой обоих форматов
+            LocalDateTime startDate = parseDateTime(start);
+            LocalDateTime endDate = parseDateTime(end);
 
             log.info("Parsed dates: start={}, end={}", startDate, endDate);
 
@@ -87,14 +126,9 @@ public class StatsController {
         log.info("Params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
 
         try {
-            // Полное URL декодирование
-            start = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
-            end = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
-
-            log.info("Decoded params: start='{}', end='{}'", start, end);
-
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
+            // Парсим даты с поддержкой обоих форматов
+            LocalDateTime startDate = parseDateTime(start);
+            LocalDateTime endDate = parseDateTime(end);
 
             log.info("Parsed dates: start={}, end={}", startDate, endDate);
 
@@ -141,14 +175,9 @@ public class StatsController {
         log.info("Params: start='{}', end='{}', unique={}", start, end, unique);
 
         try {
-            // Полное URL декодирование
-            start = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
-            end = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
-
-            log.info("Decoded params: start='{}', end='{}'", start, end);
-
-            LocalDateTime startDate = LocalDateTime.parse(start, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(end, FORMATTER);
+            // Парсим даты с поддержкой обоих форматов
+            LocalDateTime startDate = parseDateTime(start);
+            LocalDateTime endDate = parseDateTime(end);
 
             log.info("Parsed dates: start={}, end={}", startDate, endDate);
 
