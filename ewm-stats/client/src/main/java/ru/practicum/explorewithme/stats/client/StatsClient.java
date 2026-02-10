@@ -119,7 +119,8 @@ public class StatsClient {
                     url,
                     HttpMethod.GET,
                     null,
-                    new ParameterizedTypeReference<List<ViewStatsDto>>() {}
+                    new ParameterizedTypeReference<List<ViewStatsDto>>() {
+                    }
             );
 
             List<ViewStatsDto> stats = response.getBody();
