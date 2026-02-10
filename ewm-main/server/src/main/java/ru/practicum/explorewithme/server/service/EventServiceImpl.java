@@ -16,9 +16,10 @@ import ru.practicum.explorewithme.server.mapper.EventMapper;
 import ru.practicum.explorewithme.server.repository.EventRepository;
 import ru.practicum.explorewithme.server.repository.RequestRepository;
 import ru.practicum.explorewithme.stats.client.StatsClient;
+import ru.practicum.explorewithme.stats.dto.EndpointHit;
+import ru.practicum.explorewithme.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,11 +39,9 @@ public class EventServiceImpl implements EventService {
     private EntityManager entityManager;
 
     private static final String APP_NAME = "ewm-main";
-    private static final String EVENTS_URI = "/events";
     private static final EventState PENDING_STATE = EventState.PENDING;
     private static final long USER_HOURS_AHEAD = 2L;
     private static final long ADMIN_HOURS_AHEAD = 1L;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     @Transactional
@@ -307,7 +306,7 @@ public class EventServiceImpl implements EventService {
 
         if (eventsPage.isEmpty()) {
             log.debug("[EventService] Публичные события не найдены");
-            sendHit(remoteAddr);
+            sendHit("/events", remoteAddr);
             return List.of();
         }
 
@@ -330,14 +329,20 @@ public class EventServiceImpl implements EventService {
                 ))
                 .collect(Collectors.toList());
 
-        sendHit(remoteAddr);
+        sendHit("/events", remoteAddr);
         return shortDtos;
     }
 
-    private void sendHit(String remoteAddr) {
+    private void sendHit(String uri, String remoteAddr) {
         try {
-            statsClient.postHit(APP_NAME, EVENTS_URI, remoteAddr, LocalDateTime.now());
-            log.debug("[EventService] Статистика отправлена: ip={}", remoteAddr);
+            EndpointHit hit = EndpointHit.builder()
+                    .app(APP_NAME)
+                    .uri(uri)
+                    .ip(remoteAddr)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            statsClient.saveHit(hit);
+            log.debug("[EventService] Статистика отправлена: uri={}, ip={}", uri, remoteAddr);
         } catch (Exception e) {
             log.warn("[EventService] Ошибка отправки статистики: {}", e.getMessage());
         }
@@ -355,15 +360,12 @@ public class EventServiceImpl implements EventService {
             throw new EntityNotFoundException("Событие не опубликовано");
         }
 
-        try {
-            statsClient.postHit(APP_NAME, EVENTS_URI + "/" + eventId, remoteAddr, LocalDateTime.now());
-            log.debug("[EventService] Статистика отправлена для события: eventId={}", eventId);
-        } catch (Exception e) {
-            log.warn("[EventService] Ошибка отправки статистики для события {}: {}", eventId, e.getMessage());
-        }
+        // Сохраняем просмотр
+        sendHit("/events/" + eventId, remoteAddr);
 
+        // Получаем статистику просмотров
         Long views = getViewsForEvent(eventId);
-        views = (views != null ? views : 0L) + 1;
+        views = (views != null ? views : 0L) + 1; // +1 текущий просмотр
 
         Long confirmedRequests = getConfirmedCount(event.getId());
 
@@ -476,21 +478,28 @@ public class EventServiceImpl implements EventService {
                     .map(id -> "/events/" + id)
                     .collect(Collectors.toList());
 
-            // Делаем ОДИН запрос к сервису статистики
-            String start = LocalDateTime.now().minusYears(1).format(formatter);
-            String end = LocalDateTime.now().format(formatter);
+            // Устанавливаем широкий диапазон дат
+            LocalDateTime start = LocalDateTime.now().minusYears(100);
+            LocalDateTime end = LocalDateTime.now().plusYears(100);
 
-            var response = statsClient.getStats(start, end, uris, false);
+            // Получаем статистику - unique=false для всех просмотров
+            List<ViewStats> stats = statsClient.getStats(start, end, uris, false);
 
-            if (response.getBody() != null) {
-                return response.getBody().stream()
+            log.debug("[EventService] Получено {} записей статистики для {} событий",
+                    stats != null ? stats.size() : 0, eventIds.size());
+
+            if (stats != null && !stats.isEmpty()) {
+                return stats.stream()
+                        .filter(stat -> stat != null && stat.getUri() != null && stat.getHits() != null)
                         .collect(Collectors.toMap(
-                                stats -> extractEventIdFromUri(stats.getUri()),
-                                stats -> stats.getHits() != null ? stats.getHits() : 0L
+                                stat -> extractEventIdFromUri(stat.getUri()),
+                                ViewStats::getHits,
+                                (h1, h2) -> h1 // если дубликаты, берем первое значение
                         ));
             }
         } catch (Exception e) {
-            log.warn("[EventService] Ошибка при получении статистики: {}", e.getMessage());
+            log.warn("[EventService] Ошибка при получении статистики для событий {}: {}",
+                    eventIds, e.getMessage());
         }
 
         return Collections.emptyMap();
@@ -498,11 +507,28 @@ public class EventServiceImpl implements EventService {
 
     private Long extractEventIdFromUri(String uri) {
         try {
-            String[] parts = uri.split("/");
-            return Long.parseLong(parts[parts.length - 1]);
+            if (uri == null || uri.isEmpty()) {
+                return -1L;
+            }
+
+            // Убираем возможные слэши в начале
+            String cleanUri = uri.startsWith("/") ? uri.substring(1) : uri;
+
+            // Разбиваем на части
+            String[] parts = cleanUri.split("/");
+
+            // Ожидаем формат: events/{id}
+            if (parts.length >= 2 && "events".equals(parts[0])) {
+                return Long.parseLong(parts[1]);
+            } else if (parts.length > 0) {
+                // Пробуем достать ID из последней части
+                String lastPart = parts[parts.length - 1];
+                return Long.parseLong(lastPart);
+            }
         } catch (Exception e) {
             log.warn("[EventService] Не удалось извлечь ID события из URI: {}", uri);
-            return -1L;
         }
+
+        return -1L;
     }
 }

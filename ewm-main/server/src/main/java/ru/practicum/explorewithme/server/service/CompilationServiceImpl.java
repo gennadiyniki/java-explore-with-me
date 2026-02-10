@@ -20,9 +20,9 @@ import ru.practicum.explorewithme.server.exception.EntityNotFoundException;
 import ru.practicum.explorewithme.server.mapper.CompilationMapper;
 import ru.practicum.explorewithme.server.mapper.EventMapper;
 import ru.practicum.explorewithme.stats.client.StatsClient;
+import ru.practicum.explorewithme.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -167,13 +167,15 @@ public class CompilationServiceImpl implements CompilationService {
         List<Event> allEvents = compilations.stream()
                 .filter(comp -> comp.getEvents() != null)
                 .flatMap(comp -> comp.getEvents().stream())
+                .distinct()
                 .collect(Collectors.toList());
 
         // Batch получение статистики для всех событий
         Map<Long, EventShortDto> eventDtoMap = getEventShortDtosBatch(allEvents).stream()
                 .collect(Collectors.toMap(
-                        dto -> dto.getId(),
-                        dto -> dto
+                        EventShortDto::getId,
+                        dto -> dto,
+                        (d1, d2) -> d1
                 ));
 
         // Собираем результат
@@ -227,7 +229,7 @@ public class CompilationServiceImpl implements CompilationService {
         // 1 запрос для получения просмотров для всех событий
         Map<Long, Long> eventViews = getViewsBatch(eventIds);
 
-        // 1 Создаем DTO для всех событий
+        // Создаем DTO для всех событий
         return events.stream()
                 .map(event -> eventMapper.toShortDto(
                         event,
@@ -248,21 +250,28 @@ public class CompilationServiceImpl implements CompilationService {
                     .map(id -> "/events/" + id)
                     .collect(Collectors.toList());
 
-            // Делаем 1 запрос к сервису статистики
-            String start = LocalDateTime.now().minusYears(100).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            String end = LocalDateTime.now().plusYears(100).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            // Устанавливаем широкий диапазон дат
+            LocalDateTime start = LocalDateTime.now().minusYears(100);
+            LocalDateTime end = LocalDateTime.now().plusYears(100);
 
-            var response = statsClient.getStats(start, end, uris, true);
+            // Получаем статистику - unique=false для всех просмотров
+            List<ViewStats> stats = statsClient.getStats(start, end, uris, false);
 
-            if (response.getBody() != null) {
-                return response.getBody().stream()
+            log.debug("[CompilationService] Получено {} записей статистики для {} событий",
+                    stats != null ? stats.size() : 0, eventIds.size());
+
+            if (stats != null && !stats.isEmpty()) {
+                return stats.stream()
+                        .filter(stat -> stat != null && stat.getUri() != null && stat.getHits() != null)
                         .collect(Collectors.toMap(
-                                stats -> extractEventIdFromUri(stats.getUri()),
-                                stats -> stats.getHits() != null ? stats.getHits() : 0L
+                                stat -> extractEventIdFromUri(stat.getUri()),
+                                ViewStats::getHits,
+                                (h1, h2) -> h1 // если дубликаты, берем первое значение
                         ));
             }
         } catch (Exception e) {
-            log.warn("[CompilationService] Ошибка при получении статистики: {}", e.getMessage());
+            log.warn("[CompilationService] Ошибка при получении статистики для событий {}: {}",
+                    eventIds, e.getMessage());
         }
 
         return Collections.emptyMap();
@@ -270,11 +279,28 @@ public class CompilationServiceImpl implements CompilationService {
 
     private Long extractEventIdFromUri(String uri) {
         try {
-            String[] parts = uri.split("/");
-            return Long.parseLong(parts[parts.length - 1]);
+            if (uri == null || uri.isEmpty()) {
+                return -1L;
+            }
+
+            // Убираем возможные слэши в начале
+            String cleanUri = uri.startsWith("/") ? uri.substring(1) : uri;
+
+            // Разбиваем на части
+            String[] parts = cleanUri.split("/");
+
+            // Ожидаем формат: events/{id}
+            if (parts.length >= 2 && "events".equals(parts[0])) {
+                return Long.parseLong(parts[1]);
+            } else if (parts.length > 0) {
+                // Пробуем достать ID из последней части
+                String lastPart = parts[parts.length - 1];
+                return Long.parseLong(lastPart);
+            }
         } catch (Exception e) {
             log.warn("[CompilationService] Не удалось извлечь ID события из URI: {}", uri);
-            return -1L;
         }
+
+        return -1L;
     }
 }
