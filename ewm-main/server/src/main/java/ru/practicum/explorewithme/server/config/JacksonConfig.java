@@ -21,14 +21,9 @@ public class JacksonConfig {
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
 
-        // Настройка JavaTimeModule с кастомным форматом
         JavaTimeModule javaTimeModule = new JavaTimeModule();
-
-        // Сериализатор: LocalDateTime -> String
         javaTimeModule.addSerializer(LocalDateTime.class,
                 new LocalDateTimeSerializer(FORMATTER));
-
-        // Десериализатор: String -> LocalDateTime
         javaTimeModule.addDeserializer(LocalDateTime.class,
                 new LocalDateTimeDeserializer(FORMATTER));
 

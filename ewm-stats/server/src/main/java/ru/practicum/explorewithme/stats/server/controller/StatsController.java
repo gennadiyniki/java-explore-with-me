@@ -11,6 +11,8 @@ import ru.practicum.explorewithme.stats.dto.EndpointHit;
 import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
 import ru.practicum.explorewithme.stats.server.service.StatServiceImpl;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -45,9 +47,9 @@ public class StatsController {
         log.info("Raw params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
 
         try {
-            // Декодируем пробелы если они закодированы
-            start = start.replace("%20", " ");
-            end = end.replace("%20", " ");
+            // Полное URL декодирование
+            start = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
+            end = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
 
             log.info("Decoded params: start='{}', end='{}'", start, end);
 
@@ -85,9 +87,9 @@ public class StatsController {
         log.info("Params: start='{}', end='{}', uris={}, unique={}", start, end, uris, unique);
 
         try {
-            // Декодируем пробелы
-            start = start.replace("%20", " ");
-            end = end.replace("%20", " ");
+            // Полное URL декодирование
+            start = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
+            end = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
 
             log.info("Decoded params: start='{}', end='{}'", start, end);
 
@@ -114,7 +116,7 @@ public class StatsController {
                 stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
             }
 
-            // Сортировка по убыванию hits (требуется тестами)
+            // Сортировка по убыванию hits
             stats.sort((a, b) -> Long.compare(b.getHits(), a.getHits()));
 
             log.info("Returning {} event stats records", stats.size());
@@ -139,9 +141,9 @@ public class StatsController {
         log.info("Params: start='{}', end='{}', unique={}", start, end, unique);
 
         try {
-            // Декодируем пробелы
-            start = start.replace("%20", " ");
-            end = end.replace("%20", " ");
+            // Полное URL декодирование
+            start = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
+            end = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
 
             log.info("Decoded params: start='{}', end='{}'", start, end);
 
@@ -161,7 +163,7 @@ public class StatsController {
 
             List<ViewStatsDto> stats = statServiceImpl.getStats(startDate, endDate, uris, unique);
 
-            // Если статистики нет, возвращаем объект с 0 хитов (для тестов)
+            // Если статистики нет, возвращаем объект с 0 хитов
             if (stats.isEmpty()) {
                 ViewStatsDto emptyStat = ViewStatsDto.builder()
                         .app("ewm-main")
@@ -179,7 +181,7 @@ public class StatsController {
         } catch (Exception e) {
             log.error("Error processing /events/{} stats: {}", id, e.getMessage(), e);
 
-            // Возвращаем пустой объект с 0 хитов при ошибке (для совместимости с тестами)
+            // Возвращаем пустой объект с 0 хитов при ошибке
             String eventUri = "/events/" + id;
             ViewStatsDto errorStat = ViewStatsDto.builder()
                     .app("ewm-main")
