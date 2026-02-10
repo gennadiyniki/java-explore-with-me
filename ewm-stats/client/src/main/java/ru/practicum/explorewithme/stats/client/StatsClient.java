@@ -7,26 +7,23 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
 import ru.practicum.explorewithme.stats.dto.ViewStats;
 
-
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class StatsClient {
     private final RestTemplate restTemplate;
-    private static final String SERVER_URL = "http://localhost:9090";
+    private static final String STATS_SERVER_URL = "http://localhost:9090";
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public StatsClient() {
-        this.restTemplate = new RestTemplate();
-    }
     public void postHit(String app, String uri, String ip, LocalDateTime timestamp) {
         EndpointHit hit = EndpointHit.builder()
                 .app(app)
@@ -35,27 +32,45 @@ public class StatsClient {
                 .timestamp(timestamp)
                 .build();
         try {
-            restTemplate.postForObject("/hits", hit, EndpointHit.class);
+            String url = STATS_SERVER_URL + "/hit";
+            restTemplate.postForObject(url, hit, EndpointHit.class);
         } catch (HttpStatusCodeException e) {
             throw new RuntimeException("Ошибка при сохранении статистики: " + e.getStatusCode());
         }
     }
 
     public ResponseEntity<List<ViewStats>> getStats(String start, String end, List<String> uris, Boolean unique) {
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put("start", start);
-        parameters.put("end", end);
-        parameters.put("uris", uris);
-        parameters.put("unique", unique != null ? unique : false);
+        try {
+            // Кодируем параметры
+            String encodedStart = URLEncoder.encode(start, StandardCharsets.UTF_8.toString());
+            String encodedEnd = URLEncoder.encode(end, StandardCharsets.UTF_8.toString());
 
-        return restTemplate.exchange(
-                "/stats?start={start}&end={end}&uris={uris}&unique={unique}",
-                org.springframework.http.HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<List<ViewStats>>() {
-                },
-                parameters
-        );
+            // Строим URL с правильным кодированием
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(STATS_SERVER_URL + "/stats")
+                    .queryParam("start", encodedStart)
+                    .queryParam("end", encodedEnd);
+
+            if (uris != null && !uris.isEmpty()) {
+                builder.queryParam("uris", String.join(",", uris));
+            }
+
+            if (unique != null) {
+                builder.queryParam("unique", unique);
+            }
+
+            String url = builder.toUriString();
+
+            return restTemplate.exchange(
+                    url,
+                    org.springframework.http.HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<ViewStats>>() {
+                    },
+                    (Object) null
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Ошибка при получении статистики: " + e.getMessage(), e);
+        }
     }
 
     public static String clientIpAddress(HttpServletRequest request) {
