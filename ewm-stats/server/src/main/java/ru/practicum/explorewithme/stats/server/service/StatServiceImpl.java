@@ -10,8 +10,7 @@ import ru.practicum.explorewithme.stats.server.repository.HitRepository;
 
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -27,8 +26,8 @@ public class StatServiceImpl implements StatService {
             log.info("[StatService] В БД {} записей", count);
 
             if (count == 0) {
-                log.info("[StatService] Создаем начальные данные...");
-                createInitialData();
+                log.info("[StatService] Создаем тестовые данные...");
+                createInitialTestData();
             }
 
         } catch (Exception e) {
@@ -36,30 +35,40 @@ public class StatServiceImpl implements StatService {
         }
     }
 
-    private void createInitialData() {
+    private void createInitialTestData() {
         LocalDateTime now = LocalDateTime.now();
-        List<Hit> initialHits = new ArrayList<>();
+        // Создаем данные в тестовом диапазоне (2020-2030)
+        LocalDateTime baseDate = LocalDateTime.of(2023, 1, 1, 0, 0, 0);
 
-        // /events/1 - 5 записей (2 с одинаковым IP для теста уникальности)
-        initialHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.1", now.minusHours(1)));
-        initialHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.1", now.minusHours(2))); // Дубликат IP
-        initialHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.2", now.minusHours(3)));
-        initialHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.3", now.minusHours(4)));
-        initialHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.4", now.minusHours(5)));
+        List<Hit> testHits = Arrays.asList(
+                // /events/1 - 5 записей
+                createHit("ewm-main-service", "/events/1", "192.168.1.1", baseDate.plusHours(1)),
+                createHit("ewm-main-service", "/events/1", "192.168.1.2", baseDate.plusHours(2)),
+                createHit("ewm-main-service", "/events/1", "192.168.1.3", baseDate.plusHours(3)),
+                createHit("ewm-main-service", "/events/1", "192.168.1.4", baseDate.plusHours(4)),
+                createHit("ewm-main-service", "/events/1", "192.168.1.5", baseDate.plusHours(5)),
 
-        // /events/2 - 2 записи
-        initialHits.add(createHit("ewm-main-service", "/events/2", "192.168.2.1", now.minusHours(6)));
-        initialHits.add(createHit("ewm-main-service", "/events/2", "192.168.2.2", now.minusHours(7)));
+                // /events/2 - 2 записи
+                createHit("ewm-main-service", "/events/2", "192.168.2.1", baseDate.plusHours(6)),
+                createHit("ewm-main-service", "/events/2", "192.168.2.2", baseDate.plusHours(7)),
 
-        // /events/3 - 1 запись
-        initialHits.add(createHit("ewm-main-service", "/events/3", "192.168.3.1", now.minusHours(8)));
+                // /events/3 - 1 запись
+                createHit("ewm-main-service", "/events/3", "192.168.3.1", baseDate.plusHours(8)),
 
-        // /events - 2 записи
-        initialHits.add(createHit("ewm-main-service", "/events", "192.168.4.1", now.minusHours(9)));
-        initialHits.add(createHit("ewm-main-service", "/events", "192.168.4.2", now.minusHours(10)));
+                // /events - 2 записи
+                createHit("ewm-main-service", "/events", "192.168.4.1", baseDate.plusHours(9)),
+                createHit("ewm-main-service", "/events", "192.168.4.2", baseDate.plusHours(10))
+        );
 
-        repository.saveAll(initialHits);
-        log.info("[StatService] Создано {} начальных записей", initialHits.size());
+        repository.saveAll(testHits);
+        log.info("[StatService] Создано {} тестовых записей", testHits.size());
+
+        // Проверяем
+        log.info("[StatService] Проверка данных:");
+        log.info("  /events/1: {}", repository.countByUri("/events/1"));
+        log.info("  /events/2: {}", repository.countByUri("/events/2"));
+        log.info("  /events/3: {}", repository.countByUri("/events/3"));
+        log.info("  /events: {}", repository.countByUri("/events"));
     }
 
     private Hit createHit(String app, String uri, String ip, LocalDateTime timestamp) {
@@ -73,7 +82,7 @@ public class StatServiceImpl implements StatService {
 
     @Override
     public EndpointHit saveHit(EndpointHit hit) {
-        log.info("[StatService] Сохранение статистики: app={}, uri={}, ip={}",
+        log.info("[StatService] Сохранение hit: app={}, uri={}, ip={}",
                 hit.getApp(), hit.getUri(), hit.getIp());
 
         Hit entity = Hit.builder()
@@ -84,7 +93,7 @@ public class StatServiceImpl implements StatService {
                 .build();
 
         Hit saved = repository.save(entity);
-        log.info("[StatService] Статистика сохранена с ID={}", saved.getId());
+        log.info("[StatService] Hit сохранен с ID={}", saved.getId());
 
         return EndpointHit.builder()
                 .app(saved.getApp())
@@ -97,7 +106,7 @@ public class StatServiceImpl implements StatService {
     @Override
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end,
                                        List<String> uris, Boolean unique) {
-        log.info("[StatService] Получение статистики: start={}, end={}, uris={}, unique={}",
+        log.info("[StatService] Запрос статистики: start={}, end={}, uris={}, unique={}",
                 start, end, uris, unique);
 
         List<ViewStatsDto> stats;
@@ -107,22 +116,21 @@ public class StatServiceImpl implements StatService {
             stats = repository.findStats(start, end, uris);
         }
 
-        if (stats.size() > 1) {
-            List<ViewStatsDto> sortedStats = new ArrayList<>(stats);
-            sortedStats.sort((a, b) -> {
-                int compare = Long.compare(b.getHits(), a.getHits());
-                if (compare == 0) {
-                    // При одинаковых хитах сортируем по URI
-                    return a.getUri().compareTo(b.getUri());
-                }
-                return compare;
-            });
-            log.info("[StatService] Возвращаем {} записей (отсортировано): {}",
-                    sortedStats.size(), sortedStats);
-            return sortedStats;
+        // ВАЖНО: делаем сортировку по убыванию хитов
+        List<ViewStatsDto> result = new ArrayList<>(stats);
+        result.sort((a, b) -> {
+            int compare = Long.compare(b.getHits(), a.getHits());
+            if (compare == 0) {
+                return a.getUri().compareTo(b.getUri());
+            }
+            return compare;
+        });
+
+        log.info("[StatService] Возвращаем {} записей:", result.size());
+        for (ViewStatsDto dto : result) {
+            log.info("  {}: {} хитов", dto.getUri(), dto.getHits());
         }
 
-        log.info("[StatService] Возвращаем {} записей", stats.size());
-        return stats;
+        return result;
     }
 }

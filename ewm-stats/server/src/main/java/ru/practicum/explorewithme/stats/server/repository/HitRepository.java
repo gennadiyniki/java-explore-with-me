@@ -11,17 +11,19 @@ import java.util.List;
 
 public interface HitRepository extends JpaRepository<Hit, Long> {
 
-    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStatsDto(h.app, h.uri, COUNT(h)) " +
+    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStatsDto(" +
+            "h.app, h.uri, COUNT(h.ip)) " +  // COUNT(h.ip) а не COUNT(h)!
             "FROM Hit h " +
             "WHERE h.timestamp BETWEEN :start AND :end " +
             "AND (:uris IS NULL OR h.uri IN :uris) " +
             "GROUP BY h.app, h.uri " +
-            "ORDER BY COUNT(h) DESC")
+            "ORDER BY COUNT(h.ip) DESC")
     List<ViewStatsDto> findStats(@Param("start") LocalDateTime start,
                                  @Param("end") LocalDateTime end,
                                  @Param("uris") List<String> uris);
 
-    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStatsDto(h.app, h.uri, COUNT(DISTINCT h.ip)) " +
+    @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStatsDto(" +
+            "h.app, h.uri, COUNT(DISTINCT h.ip)) " +
             "FROM Hit h " +
             "WHERE h.timestamp BETWEEN :start AND :end " +
             "AND (:uris IS NULL OR h.uri IN :uris) " +
@@ -31,13 +33,10 @@ public interface HitRepository extends JpaRepository<Hit, Long> {
                                        @Param("end") LocalDateTime end,
                                        @Param("uris") List<String> uris);
 
-    // Найти по URI в период времени
-    List<Hit> findAllByUriAndTimestampBetween(String uri, LocalDateTime start, LocalDateTime end);
+    // Дополнительные методы для отладки
+    List<Hit> findByUri(String uri);
 
-    // Найти все в период времени
-    List<Hit> findAllByTimestampBetween(LocalDateTime start, LocalDateTime end);
+    List<Hit> findByUriAndTimestampBetween(String uri, LocalDateTime start, LocalDateTime end);
 
-    // Найти уникальные по URI, APP и IP в период времени
-    @Query("SELECT h FROM Hit h WHERE h.timestamp BETWEEN :start AND :end GROUP BY h.uri, h.app, h.ip")
-    List<Hit> findDistinctByTimestampBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    long countByUri(String uri);
 }

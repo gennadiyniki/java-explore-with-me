@@ -29,15 +29,12 @@ public class StatsClient {
     private static final String STATS_SERVER_URL = "http://localhost:9090";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // Единственный конструктор, который создает и настраивает RestTemplate
     public StatsClient() {
         this.restTemplate = createRestTemplate();
-        log.info("=== STATS CLIENT INITIALIZED ===");
+        log.info("[StatsClient] Инициализирован");
     }
 
     private RestTemplate createRestTemplate() {
-        log.debug("Creating RestTemplate with LocalDateTime support");
-
         RestTemplate restTemplate = new RestTemplate();
 
         // Настраиваем ObjectMapper для правильной сериализации LocalDateTime
@@ -50,27 +47,18 @@ public class StatsClient {
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
         converter.setObjectMapper(mapper);
 
-        // Добавляем конвертер в RestTemplate (в начало списка)
+        // Добавляем конвертер в RestTemplate
         restTemplate.getMessageConverters().add(0, converter);
 
         return restTemplate;
     }
 
     public void saveHit(EndpointHit hit) {
-        log.info("=== STATS CLIENT: POST /hit ===");
-        log.info("Saving hit: app={}, uri={}, ip={}, timestamp={}",
-                hit.getApp(), hit.getUri(), hit.getIp(), hit.getTimestamp());
+        log.info("[StatsClient] Отправка hit: app={}, uri={}, ip={}",
+                hit.getApp(), hit.getUri(), hit.getIp());
 
         try {
             String url = STATS_SERVER_URL + "/hit";
-            log.debug("Sending POST to: {}", url);
-
-            // Логируем что отправляем
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JavaTimeModule());
-            mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-            String json = mapper.writeValueAsString(hit);
-            log.debug("JSON being sent: {}", json);
 
             ResponseEntity<EndpointHit> response = restTemplate.postForEntity(
                     url,
@@ -78,76 +66,61 @@ public class StatsClient {
                     EndpointHit.class
             );
 
-            log.info("Hit saved successfully. Status: {}, Body: {}",
-                    response.getStatusCode(), response.getBody());
+            log.info("[StatsClient] Hit успешно отправлен, статус: {}", response.getStatusCode());
         } catch (Exception e) {
-            log.error("Failed to save hit: {}", e.getMessage());
-            log.error("Full error:", e);
+            log.error("[StatsClient] Ошибка отправки hit: {}", e.getMessage());
             // Не бросаем исключение, чтобы не ломать основной функционал
         }
     }
 
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
-        log.info("=== STATS CLIENT: GET /stats ===");
-        log.info("Params: start={}, end={}, uris={}, unique={}", start, end, uris, unique);
+        log.info("[StatsClient] Запрос статистики: start={}, end={}, uris={}, unique={}",
+                start, end, uris, unique);
 
         try {
-            // Кодируем даты согласно требованиям тестов
-            String encodedStart = encodeDateTime(start);
-            String encodedEnd = encodeDateTime(end);
+            // Форматируем даты
+            String startStr = start.format(FORMATTER);
+            String endStr = end.format(FORMATTER);
 
-            // Строим URL с правильным кодированием
+            // Кодируем для URL (пробелы -> %20)
+            String encodedStart = URLEncoder.encode(startStr, StandardCharsets.UTF_8.toString());
+            String encodedEnd = URLEncoder.encode(endStr, StandardCharsets.UTF_8.toString());
+
+            // Строим URL
             UriComponentsBuilder builder = UriComponentsBuilder
                     .fromHttpUrl(STATS_SERVER_URL + "/stats")
                     .queryParam("start", encodedStart)
-                    .queryParam("end", encodedEnd);
+                    .queryParam("end", encodedEnd)
+                    .queryParam("unique", unique);
 
+            // Добавляем URIs как отдельные параметры
             if (uris != null && !uris.isEmpty()) {
-                // Если URI несколько, добавляем каждый отдельно
                 for (String uri : uris) {
                     builder.queryParam("uris", uri);
                 }
             }
 
-            builder.queryParam("unique", unique);
-
             String url = builder.toUriString();
-            log.debug("Request URL: {}", url);
+            log.debug("[StatsClient] URL запроса: {}", url);
 
             // Выполняем запрос
             ResponseEntity<List<ViewStatsDto>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     null,
-                    new ParameterizedTypeReference<List<ViewStatsDto>>() {
-                    }
+                    new ParameterizedTypeReference<List<ViewStatsDto>>() {}
             );
 
             List<ViewStatsDto> stats = response.getBody();
-            log.info("Response received. Status: {}, Count: {}",
-                    response.getStatusCode(),
+            log.info("[StatsClient] Получено {} записей статистики",
                     stats != null ? stats.size() : 0);
-
-            if (stats != null) {
-                stats.forEach(stat -> log.debug("Stat: {} - {}: {}",
-                        stat.getApp(), stat.getUri(), stat.getHits()));
-            }
 
             return stats != null ? stats : Collections.emptyList();
 
         } catch (Exception e) {
-            log.error("Failed to get stats: {}", e.getMessage(), e);
+            log.error("[StatsClient] Ошибка получения статистики: {}", e.getMessage());
             return Collections.emptyList();
         }
-    }
-
-    // Метод для кодирования даты (требуется тестами)
-    private String encodeDateTime(LocalDateTime dateTime) {
-        if (dateTime == null) {
-            return "";
-        }
-        String formatted = dateTime.format(FORMATTER);
-        return URLEncoder.encode(formatted, StandardCharsets.UTF_8);
     }
 
     // Вспомогательный метод для быстрого сохранения просмотра
