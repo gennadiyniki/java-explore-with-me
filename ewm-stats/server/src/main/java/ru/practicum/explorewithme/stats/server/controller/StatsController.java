@@ -15,12 +15,13 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
-@Slf4j
 @Validated
 public class StatsController {
     private final StatService statService;
@@ -30,14 +31,16 @@ public class StatsController {
     @PostMapping("/hit")
     public ResponseEntity<EndpointHit> hit(@Valid @RequestBody EndpointHit endpointHit) {
         log.info("=== POST /hit ===");
-        log.info("Принят hit: app={}, uri={}, ip={}, timestamp={}",
-                endpointHit.getApp(), endpointHit.getUri(),
-                endpointHit.getIp(), endpointHit.getTimestamp());
+        log.info("Received hit: {}", endpointHit);
 
-        EndpointHit savedHit = statService.saveHit(endpointHit);
-
-        log.info("Hit сохранен с ID: {}", savedHit);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedHit);
+        try {
+            EndpointHit savedHit = statService.saveHit(endpointHit);
+            log.info("Hit saved successfully: {}", savedHit);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedHit);
+        } catch (Exception e) {
+            log.error("Error saving hit: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/stats")
@@ -48,43 +51,60 @@ public class StatsController {
             @RequestParam(defaultValue = "false") boolean unique) {
 
         log.info("=== GET /stats ===");
-        log.info("Получен запрос статистики:");
+        log.info("RAW PARAMETERS:");
         log.info("  start (raw): '{}'", start);
         log.info("  end (raw): '{}'", end);
-        log.info("  uris: {}", uris);
-        log.info("  unique: {}", unique);
+        log.info("  uris (raw): {}", uris);
+        log.info("  unique (raw): {}", unique);
 
         try {
-            // Декодирование URL (тесты Postman кодируют пробелы как %20)
-            String decodedStart = URLDecoder.decode(start, StandardCharsets.UTF_8.toString());
-            String decodedEnd = URLDecoder.decode(end, StandardCharsets.UTF_8.toString());
+            // Декодируем URL-encoded параметры
+            String decodedStart = URLDecoder.decode(start, StandardCharsets.UTF_8);
+            String decodedEnd = URLDecoder.decode(end, StandardCharsets.UTF_8);
 
+            log.info("DECODED PARAMETERS:");
             log.info("  start (decoded): '{}'", decodedStart);
             log.info("  end (decoded): '{}'", decodedEnd);
 
-            LocalDateTime startDate = LocalDateTime.parse(decodedStart, FORMATTER);
-            LocalDateTime endDate = LocalDateTime.parse(decodedEnd, FORMATTER);
+            // Парсим даты
+            LocalDateTime startDate;
+            LocalDateTime endDate;
 
+            try {
+                startDate = LocalDateTime.parse(decodedStart, FORMATTER);
+                endDate = LocalDateTime.parse(decodedEnd, FORMATTER);
+            } catch (DateTimeParseException e) {
+                log.error("ERROR PARSING DATES:");
+                log.error("  Failed to parse start: '{}'", decodedStart);
+                log.error("  Failed to parse end: '{}'", decodedEnd);
+                log.error("  Exception: {}", e.getMessage());
+                return ResponseEntity.badRequest().body(Collections.emptyList());
+            }
+
+            log.info("PARSED DATES:");
             log.info("  start (parsed): {}", startDate);
             log.info("  end (parsed): {}", endDate);
 
             if (startDate.isAfter(endDate)) {
-                log.error("Ошибка: дата начала {} позже даты окончания {}", startDate, endDate);
+                log.error("Invalid date range: start {} is after end {}", startDate, endDate);
                 return ResponseEntity.badRequest().body(Collections.emptyList());
             }
 
+            // Получаем статистику
             List<ViewStatsDto> stats = statService.getStats(startDate, endDate, uris, unique);
 
-            log.info("Возвращаем {} записей статистики:", stats.size());
+            log.info("RETURNING {} STATS RECORDS:", stats.size());
             for (ViewStatsDto stat : stats) {
-                log.info("  {}: {} - {} хитов", stat.getApp(), stat.getUri(), stat.getHits());
+                log.info("  {} - {}: {} hits",
+                        stat.getApp(), stat.getUri(), stat.getHits());
             }
 
             return ResponseEntity.ok(stats);
 
         } catch (Exception e) {
-            log.error("Ошибка обработки запроса статистики: {}", e.getMessage(), e);
-            return ResponseEntity.ok(Collections.emptyList());
+            log.error("UNEXPECTED ERROR processing /stats request:", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
         }
     }
 }
