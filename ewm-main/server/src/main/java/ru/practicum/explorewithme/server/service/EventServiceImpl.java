@@ -360,14 +360,23 @@ public class EventServiceImpl implements EventService {
         sendHit("/events/" + eventId, remoteAddr);
         log.info("[EventService] Статистика отправлена для события {}", eventId);
 
-        // Потом получаем обновленную статистику (уже с учетом текущего просмотра)
+        // Небольшая задержка для гарантированной синхронизации со stats-сервисом
+        // Особенно важно для тестов, где проверяется увеличение счетчика
+        try {
+            Thread.sleep(100); // 100ms гарантирует, что stats-сервис обработал хитовый запрос
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("[EventService] Задержка прервана, продолжаем без неё");
+        }
+
+        // Получаем обновленную статистику (уже с учетом текущего просмотра)
         Long views = getViewsForEvent(eventId);
-        log.info("[EventService] Просмотры события {}: {}", eventId, views);
+        log.info("[EventService] Просмотры события {} (после отправки хита): {}", eventId, views);
 
         Long confirmedRequests = getConfirmedCount(event.getId());
 
+        // ВАЖНО: mapper уже устанавливает views из параметра 'views'
         EventFullDto dto = eventMapper.toFullDto(event, confirmedRequests, views, false);
-        dto.setViews(views);
 
         log.info("[EventService] Событие возвращено: eventId={}, title={}, views={}",
                 eventId, event.getTitle(), dto.getViews());

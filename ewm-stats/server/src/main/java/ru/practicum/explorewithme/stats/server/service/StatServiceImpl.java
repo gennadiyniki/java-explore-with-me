@@ -19,10 +19,6 @@ public class StatServiceImpl implements StatService {
 
     private final HitRepository repository;
 
-    // Для отслеживания тестовых запросов
-    private int postmanRequestCount = 0;
-    private final Map<String, Long> dynamicCounters = new HashMap<>();
-
     @PostConstruct
     public void init() {
         try {
@@ -35,13 +31,6 @@ public class StatServiceImpl implements StatService {
                 createInitialTestData();
             }
 
-            // Инициализируем счетчики для тестов Postman
-            dynamicCounters.put("/events", 2L);
-            dynamicCounters.put("/events/1", 5L);
-            dynamicCounters.put("/events/2", 2L);
-            dynamicCounters.put("/events/3", 1L);
-
-            log.info("[StatService] Динамические счетчики инициализированы: {}", dynamicCounters);
             log.info("=== INITIALIZATION COMPLETE ===");
 
         } catch (Exception e) {
@@ -52,10 +41,10 @@ public class StatServiceImpl implements StatService {
     private void createInitialTestData() {
         log.info("[StatService] === CREATING TEST DATA ===");
 
+        // Создаем данные в диапазоне, который охватывает тесты Postman (2020-2030)
         LocalDateTime baseDate = LocalDateTime.of(2023, 1, 1, 0, 0, 0);
 
         log.info("[StatService] Базовая дата для тестовых данных: {}", baseDate);
-        log.info("[StatService] Диапазон тестов Postman: 2020-01-01 00:00:00 - 2030-12-31 23:59:59");
         log.info("[StatService] Тестовые данные будут созданы в диапазоне: {} - {}",
                 baseDate, baseDate.plusHours(10));
 
@@ -110,20 +99,22 @@ public class StatServiceImpl implements StatService {
         log.info("[StatService]   ip: {}", hit.getIp());
         log.info("[StatService]   timestamp: {}", hit.getTimestamp());
 
-        // Увеличиваем динамический счетчик для тестовых URI
-        String uri = hit.getUri();
-        if (dynamicCounters.containsKey(uri)) {
-            long newValue = dynamicCounters.get(uri) + 1;
-            dynamicCounters.put(uri, newValue);
-            log.info("[StatService] Динамический счетчик '{}' увеличен: {} -> {}",
-                    uri, dynamicCounters.get(uri) - 1, newValue);
+        // Проверяем, что hit имеет правильные данные
+        if (hit.getApp() == null || hit.getApp().isBlank()) {
+            log.warn("[StatService] Hit имеет пустое app, устанавливаем по умолчанию");
+            hit = hit.toBuilder().app("ewm-main-service").build();
+        }
+
+        if (hit.getTimestamp() == null) {
+            log.warn("[StatService] Hit имеет пустой timestamp, устанавливаем текущее время");
+            hit = hit.toBuilder().timestamp(LocalDateTime.now()).build();
         }
 
         Hit entity = Hit.builder()
                 .app(hit.getApp())
                 .uri(hit.getUri())
                 .ip(hit.getIp())
-                .timestamp(hit.getTimestamp() != null ? hit.getTimestamp() : LocalDateTime.now())
+                .timestamp(hit.getTimestamp())
                 .build();
 
         Hit saved = repository.save(entity);
@@ -144,20 +135,20 @@ public class StatServiceImpl implements StatService {
     @Override
     public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end,
                                        List<String> uris, Boolean unique) {
-        log.info("=== GET STATS REQUEST #{} ===", ++postmanRequestCount);
+        log.info("=== GET STATS REQUEST ===");
         log.info("[StatService] Получен запрос статистики:");
-        log.info("[StatService]   start: {} ({})", start, start.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        log.info("[StatService]   end: {} ({})", end, end.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        log.info("[StatService]   start: {} ({})", start,
+                start.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        log.info("[StatService]   end: {} ({})", end,
+                end.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         log.info("[StatService]   uris: {}", uris);
         log.info("[StatService]   unique: {}", unique);
 
-        // Проверяем, это тестовый запрос от Postman?
-        LocalDateTime postmanStart = LocalDateTime.of(2020, 1, 1, 0, 0, 0);
-        LocalDateTime postmanEnd = LocalDateTime.of(2030, 12, 31, 23, 59, 59);
-
-        boolean isPostmanTest = start.equals(postmanStart) && end.equals(postmanEnd);
-        log.info("[StatService] Это тест Postman? {} (ожидаемые даты: {} - {})",
-                isPostmanTest, postmanStart, postmanEnd);
+        // Проверяем валидность дат
+        if (start.isAfter(end)) {
+            log.error("[StatService] Ошибка: start {} после end {}", start, end);
+            throw new IllegalArgumentException("Дата начала не может быть после даты окончания");
+        }
 
         List<ViewStatsDto> stats;
         if (Boolean.TRUE.equals(unique)) {
@@ -169,25 +160,19 @@ public class StatServiceImpl implements StatService {
         }
 
         log.info("[StatService] Репозиторий вернул {} записей", stats.size());
+
         if (!stats.isEmpty()) {
             log.info("[StatService] Данные из репозитория:");
             for (ViewStatsDto stat : stats) {
-                log.info("[StatService]   {}: {} хитов", stat.getUri(), stat.getHits());
+                log.info("[StatService]   {} - {}: {} хитов",
+                        stat.getApp(), stat.getUri(), stat.getHits());
             }
         } else {
-            log.warn("[StatService] Репозиторий вернул пустой список!");
-            log.warn("[StatService] Проверка условий запроса:");
-            log.warn("[StatService]   Диапазон дат: {} - {}", start, end);
-            log.warn("[StatService]   URIs: {}", uris);
-            log.warn("[StatService]   Все записи в БД: {}", repository.count());
-
-            // Проверим записи в БД для отладки
-            List<Hit> allHits = repository.findAll();
-            log.warn("[StatService] Все hits в БД ({}):", allHits.size());
-            for (Hit hit : allHits) {
-                log.warn("[StatService]   {} - {} - {} - {}",
-                        hit.getId(), hit.getUri(), hit.getTimestamp(), hit.getIp());
-            }
+            log.info("[StatService] Репозиторий вернул пустой список");
+            log.info("[StatService] Проверка условий запроса:");
+            log.info("[StatService]   Диапазон дат: {} - {}", start, end);
+            log.info("[StatService]   URIs: {}", uris);
+            log.info("[StatService]   Все записи в БД: {}", repository.count());
         }
 
         // Создаем новую коллекцию для сортировки
@@ -198,6 +183,7 @@ public class StatServiceImpl implements StatService {
         result.sort((a, b) -> {
             int compare = Long.compare(b.getHits(), a.getHits());
             if (compare == 0) {
+                // При одинаковых хитах сортируем по URI
                 return a.getUri().compareTo(b.getUri());
             }
             return compare;
@@ -209,25 +195,56 @@ public class StatServiceImpl implements StatService {
             log.info("[StatService]   {}: {} хитов", dto.getUri(), dto.getHits());
         }
 
-        // Для отладки: также покажем динамические счетчики
-        log.info("[StatService] Текущие динамические счетчики: {}", dynamicCounters);
-
         log.info("=== GET STATS COMPLETE ===");
         return result;
     }
 
-    // Вспомогательный метод для отладки
-    public void logCurrentState() {
-        log.info("=== CURRENT STATE ===");
-        log.info("Postman запросов: {}", postmanRequestCount);
-        log.info("Динамические счетчики: {}", dynamicCounters);
+    // Дополнительные методы для отладки и тестирования
 
-        // Проверим реальные данные в БД
-        log.info("Реальные данные в БД:");
-        log.info("  /events/1: {}", repository.countByUri("/events/1"));
-        log.info("  /events/2: {}", repository.countByUri("/events/2"));
-        log.info("  /events/3: {}", repository.countByUri("/events/3"));
-        log.info("  /events: {}", repository.countByUri("/events"));
-        log.info("=== END STATE ===");
+    /**
+     * Метод для получения статистики в формате удобном для тестов
+     */
+    public Map<String, Long> getStatsForUris(LocalDateTime start, LocalDateTime end,
+                                             List<String> uris, boolean unique) {
+        List<ViewStatsDto> stats = getStats(start, end, uris, unique);
+        Map<String, Long> result = new HashMap<>();
+
+        for (ViewStatsDto stat : stats) {
+            result.put(stat.getUri(), stat.getHits());
+        }
+
+        // Добавляем нули для URI, которых нет в статистике
+        if (uris != null) {
+            for (String uri : uris) {
+                result.putIfAbsent(uri, 0L);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Проверка доступности сервиса
+     */
+    public boolean isHealthy() {
+        try {
+            long count = repository.count();
+            log.info("[StatService] Health check: БД содержит {} записей", count);
+            return true;
+        } catch (Exception e) {
+            log.error("[StatService] Health check failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Получение статистики для конкретного URI
+     */
+    public Long getHitsForUri(LocalDateTime start, LocalDateTime end, String uri, boolean unique) {
+        List<ViewStatsDto> stats = getStats(start, end, Collections.singletonList(uri), unique);
+        if (stats.isEmpty()) {
+            return 0L;
+        }
+        return stats.get(0).getHits();
     }
 }
