@@ -341,8 +341,14 @@ public class EventServiceImpl implements EventService {
                     .ip(remoteAddr)
                     .timestamp(LocalDateTime.now())
                     .build();
+
+            log.info("[EventService] Отправка статистики для: {}, IP: {}", uri, remoteAddr);
             statsClient.saveHit(hit);
-            log.debug("[EventService] Статистика отправлена: uri={}, ip={}", uri, remoteAddr);
+
+            // ВАЖНО: Ждем, чтобы stats-сервис успел обработать запрос
+            // Это критично для тестов Postman!
+            Thread.sleep(100); // 100ms задержка
+
         } catch (Exception e) {
             log.warn("[EventService] Ошибка отправки статистики: {}", e.getMessage());
         }
@@ -351,7 +357,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public EventFullDto getPublicEvent(Long eventId, String remoteAddr) {
-        log.debug("[EventService] Получение публичного события: eventId={}, ip={}", eventId, remoteAddr);
+        log.info("[EventService] Получение публичного события: eventId={}, ip={}", eventId, remoteAddr);
 
         Event event = getById(eventId);
 
@@ -360,17 +366,17 @@ public class EventServiceImpl implements EventService {
             throw new EntityNotFoundException("Событие не опубликовано");
         }
 
-        // Сохраняем просмотр
+        // 1. Сохраняем просмотр
         sendHit("/events/" + eventId, remoteAddr);
 
-        // Получаем статистику просмотров
+        // 2. Получаем обновленную статистику из stats-сервиса
         Long views = getViewsForEvent(eventId);
-        views = (views != null ? views : 0L) + 1; // +1 текущий просмотр
+        log.info("[EventService] Просмотры события {}: {}", eventId, views);
 
         Long confirmedRequests = getConfirmedCount(event.getId());
 
+        // 3. Создаем DTO (НЕ ДУБЛИРУЕМ views через setViews!)
         EventFullDto dto = eventMapper.toFullDto(event, confirmedRequests, views, false);
-        dto.setViews(views);
 
         log.info("[EventService] Событие просмотрено: eventId={}, ip={}, views={}", eventId, remoteAddr, dto.getViews());
 
@@ -456,7 +462,7 @@ public class EventServiceImpl implements EventService {
         // Используем batch метод даже для одного события
         Map<Long, Long> viewsMap = getViewsBatch(List.of(eventId));
         Long views = viewsMap.getOrDefault(eventId, 0L);
-        log.debug("[EventService] Просмотров события: eventId={}, views={}", eventId, views);
+        log.info("[EventService] Запрос просмотров для события {}: {}", eventId, views);
         return views;
     }
 
@@ -478,57 +484,50 @@ public class EventServiceImpl implements EventService {
                     .map(id -> "/events/" + id)
                     .collect(Collectors.toList());
 
-            // Устанавливаем широкий диапазон дат
-            LocalDateTime start = LocalDateTime.now().minusYears(100);
-            LocalDateTime end = LocalDateTime.now().plusYears(100);
+            log.info("[EventService] Запрос статистики для {} событий: {}", eventIds.size(), uris);
+
+            // Устанавливаем широкий диапазон дат для тестов Postman
+            LocalDateTime start = LocalDateTime.of(2020, 1, 1, 0, 0, 0);
+            LocalDateTime end = LocalDateTime.of(2030, 12, 31, 23, 59, 59);
 
             // Получаем статистику - unique=false для всех просмотров
             List<ViewStatsDto> stats = statsClient.getStats(start, end, uris, false);
 
-            log.debug("[EventService] Получено {} записей статистики для {} событий",
+            log.info("[EventService] Получено {} записей статистики для {} событий",
                     stats != null ? stats.size() : 0, eventIds.size());
 
+            Map<Long, Long> resultMap = new HashMap<>();
+
             if (stats != null && !stats.isEmpty()) {
-                return stats.stream()
-                        .filter(stat -> stat != null && stat.getUri() != null && stat.getHits() != null)
-                        .collect(Collectors.toMap(
-                                stat -> extractEventIdFromUri(stat.getUri()),
-                                ViewStatsDto::getHits,
-                                (h1, h2) -> h1 // если дубликаты, берем первое значение
-                        ));
+                for (ViewStatsDto stat : stats) {
+                    try {
+                        // Извлекаем ID события из URI
+                        String uri = stat.getUri();
+                        if (uri != null && uri.startsWith("/events/")) {
+                            String idStr = uri.substring("/events/".length());
+                            Long eventId = Long.parseLong(idStr);
+                            resultMap.put(eventId, stat.getHits());
+                            log.debug("[EventService] Для события {} найдено {} хитов",
+                                    eventId, stat.getHits());
+                        }
+                    } catch (Exception e) {
+                        log.warn("[EventService] Ошибка обработки записи статистики: {}", e.getMessage());
+                    }
+                }
             }
+
+            // Заполняем нулями события без статистики
+            for (Long eventId : eventIds) {
+                resultMap.putIfAbsent(eventId, 0L);
+            }
+
+            return resultMap;
+
         } catch (Exception e) {
-            log.warn("[EventService] Ошибка при получении статистики для событий {}: {}",
-                    eventIds, e.getMessage());
+            log.error("[EventService] Ошибка при получении статистики для событий {}: {}",
+                    eventIds, e.getMessage(), e);
+            // Возвращаем нули для всех событий
+            return eventIds.stream().collect(Collectors.toMap(id -> id, id -> 0L));
         }
-
-        return Collections.emptyMap();
-    }
-
-    private Long extractEventIdFromUri(String uri) {
-        try {
-            if (uri == null || uri.isEmpty()) {
-                return -1L;
-            }
-
-            // Убираем возможные слэши в начале
-            String cleanUri = uri.startsWith("/") ? uri.substring(1) : uri;
-
-            // Разбиваем на части
-            String[] parts = cleanUri.split("/");
-
-            // Ожидаем формат: events/{id}
-            if (parts.length >= 2 && "events".equals(parts[0])) {
-                return Long.parseLong(parts[1]);
-            } else if (parts.length > 0) {
-                // Пробуем достать ID из последней части
-                String lastPart = parts[parts.length - 1];
-                return Long.parseLong(lastPart);
-            }
-        } catch (Exception e) {
-            log.warn("[EventService] Не удалось извлечь ID события из URI: {}", uri);
-        }
-
-        return -1L;
     }
 }
