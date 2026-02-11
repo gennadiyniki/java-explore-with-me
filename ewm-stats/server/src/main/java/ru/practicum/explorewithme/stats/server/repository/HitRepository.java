@@ -11,6 +11,7 @@ import java.util.List;
 
 public interface HitRepository extends JpaRepository<Hit, Long> {
 
+
     @Query("SELECT new ru.practicum.explorewithme.stats.dto.ViewStatsDto(" +
             "h.app, h.uri, COUNT(h.ip)) " +  // COUNT(h.ip) а не COUNT(h)!
             "FROM Hit h " +
@@ -39,4 +40,6 @@ public interface HitRepository extends JpaRepository<Hit, Long> {
     List<Hit> findByUriAndTimestampBetween(String uri, LocalDateTime start, LocalDateTime end);
 
     long countByUri(String uri);
+
+    List<Hit> findAllByUriAndTimestampBetween(String path, LocalDateTime of, LocalDateTime of1);
 }
