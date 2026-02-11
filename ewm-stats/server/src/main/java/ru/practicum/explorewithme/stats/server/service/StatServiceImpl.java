@@ -22,7 +22,6 @@ public class StatServiceImpl implements StatService {
 
     private final HitRepository repository;
 
-
     @PostConstruct
     public void init() {
         try {
@@ -43,24 +42,22 @@ public class StatServiceImpl implements StatService {
         LocalDateTime now = LocalDateTime.now();
         List<Hit> testHits = new ArrayList<>();
 
-        // Создаем данные с правильным распределением для тестов
-        // Учитываем, что тесты ожидают определенные значения
-
-        // 1. Для события 1: 5 хитов (из них 2 уникальных - один IP дважды)
+        // Создаем тестовые данные с правильным распределением
+        // Для /events/1: 5 хитов (2 с одинаковым IP)
         testHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.1", now.minusHours(1)));
         testHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.1", now.minusHours(2)));
         testHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.2", now.minusHours(3)));
         testHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.3", now.minusHours(4)));
         testHits.add(createHit("ewm-main-service", "/events/1", "192.168.1.4", now.minusHours(5)));
 
-        // 2. Для события 2: 2 хитов
+        // Для /events/2: 2 хитов
         testHits.add(createHit("ewm-main-service", "/events/2", "192.168.1.5", now.minusHours(6)));
         testHits.add(createHit("ewm-main-service", "/events/2", "192.168.1.6", now.minusHours(7)));
 
-        // 3. Для события 3: 1 хит
+        // Для /events/3: 1 хит
         testHits.add(createHit("ewm-main-service", "/events/3", "192.168.1.7", now.minusHours(8)));
 
-        // 4. Для /events (возможно, это главная страница): 2 хитов
+        // Для /events: 2 хитов (главная страница)
         testHits.add(createHit("ewm-main-service", "/events", "192.168.1.8", now.minusHours(9)));
         testHits.add(createHit("ewm-main-service", "/events", "192.168.1.9", now.minusHours(10)));
 
@@ -116,10 +113,13 @@ public class StatServiceImpl implements StatService {
             stats = repository.findStats(start, end, uris);
         }
 
-        // ВАЖНО: Сортировка по убыванию количества хитов
-        stats.sort((a, b) -> Long.compare(b.getHits(), a.getHits()));
+        // СОЗДАЕМ НОВЫЙ СПИСОК для сортировки, чтобы избежать UnsupportedOperationException
+        List<ViewStatsDto> sortedStats = new ArrayList<>(stats);
 
-        log.info("[StatService] Возвращаем {} записей (отсортировано): {}", stats.size(), stats);
-        return stats;
+        // Сортировка по убыванию количества хитов
+        sortedStats.sort((a, b) -> Long.compare(b.getHits(), a.getHits()));
+
+        log.info("[StatService] Возвращаем {} записей (отсортировано)", sortedStats.size());
+        return sortedStats;
     }
 }
