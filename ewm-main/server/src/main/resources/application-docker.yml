@@ -1,0 +1,49 @@
+# ewm-main/server/src/main/resources/application-docker.yml
+server:
+  address: 0.0.0.0
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://main-db:5432/ewm_main
+    username: main
+    password: main
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # для быстрого старта
+        temp.use_jdbc_metadata_defaults: false
+        jdbc.lob.non_contextual_creation: true
+        generate_statistics: false
+  
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
+  
+  main:
+    lazy-initialization: true
+
+stats-server:
+  url: http://stats-server:9090
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
