@@ -9,7 +9,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     long countByEventId(Long eventId);
 
-    // Самые простые методы — без @Query, без Pageable
     List<Comment> findAllByEventIdOrderByCreatedAtDesc(Long eventId);
 
     List<Comment> findAllByAuthorIdOrderByCreatedAtDesc(Long authorId);

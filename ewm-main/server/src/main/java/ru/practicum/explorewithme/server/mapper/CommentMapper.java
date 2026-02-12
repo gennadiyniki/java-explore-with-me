@@ -1,6 +1,5 @@
 package ru.practicum.explorewithme.server.mapper;
 
-
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import ru.practicum.explorewithme.comment.dto.CommentDto;

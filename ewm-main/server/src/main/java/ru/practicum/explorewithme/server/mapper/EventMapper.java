@@ -27,7 +27,8 @@ public interface EventMapper {
     @Mapping(source = "event.title", target = "title")
     @Mapping(source = "confirmedRequests", target = "confirmedRequests")
     @Mapping(source = "views", target = "views")
-    @Mapping(source = "commentCount", target = "commentCount")  // Добавлено
+    @Mapping(source = "commentCount", target = "commentCount")
+        // Добавлено
     EventFullDto toFullDto(Event event, Long confirmedRequests, Long views, Long commentCount, boolean isNew);
 
     @Mapping(source = "event.id", target = "id")
@@ -39,7 +40,8 @@ public interface EventMapper {
     @Mapping(source = "event.title", target = "title")
     @Mapping(source = "confirmedRequests", target = "confirmedRequests")
     @Mapping(source = "views", target = "views")
-    @Mapping(source = "commentCount", target = "commentCount")  // Добавлено
+    @Mapping(source = "commentCount", target = "commentCount")
+        // Добавлено
     EventShortDto toShortDto(Event event, Long confirmedRequests, Long views, Long commentCount);
 
     Location toLocationDto(EventLocation location);

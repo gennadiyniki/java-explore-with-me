@@ -14,7 +14,6 @@ import ru.practicum.explorewithme.server.mapper.CommentMapper;
 import ru.practicum.explorewithme.server.repository.CommentRepository;
 import ru.practicum.explorewithme.server.repository.EventRepository;
 import ru.practicum.explorewithme.server.repository.UserRepository;
-import ru.practicum.explorewithme.server.service.CommentService;
 
 import java.util.List;
 import java.util.stream.Collectors;
