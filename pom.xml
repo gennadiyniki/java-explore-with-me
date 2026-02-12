@@ -22,44 +22,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- ДОБАВЛЕНО: Управление версиями внутренних модулей -->
-    <dependencyManagement>
-        <dependencies>
-            <!-- Модули статистики -->
-            <dependency>
-                <groupId>ru.practicum</groupId>
-                <artifactId>ewm-stats-server</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ru.practicum</groupId>
-                <artifactId>ewm-stats-dto</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ru.practicum</groupId>
-                <artifactId>ewm-stats-client</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <!-- Модули основного сервиса -->
-            <dependency>
-                <groupId>ru.practicum</groupId>
-                <artifactId>ewm-main-server</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ru.practicum</groupId>
-                <artifactId>ewm-main-dto</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ru.practicum</groupId>
-                <artifactId>ewm-main-client</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <!-- УБИРАЕМ dependencyManagement - он создаёт циклы -->
+    <!-- Каждый сервис управляет своими зависимостями самостоятельно -->
 
     <build>
         <pluginManagement>
@@ -181,7 +145,6 @@
             </plugins>
         </pluginManagement>
     </build>
-
     <profiles>
         <profile>
             <id>check</id>

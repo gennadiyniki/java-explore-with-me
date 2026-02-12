@@ -1,23 +1,19 @@
 package ru.practicum.explorewithme.server.mapper;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import ru.practicum.explorewithme.compilation.dto.CompilationDto;
-import ru.practicum.explorewithme.server.entity.Compilation;
 import ru.practicum.explorewithme.event.dto.EventShortDto;
+import ru.practicum.explorewithme.server.entity.Compilation;
 
 import java.util.List;
 
-@Component
-@RequiredArgsConstructor
-public class CompilationMapper {
+@Mapper(componentModel = "spring")
+public interface CompilationMapper {
 
-    public CompilationDto toDto(Compilation compilation, List<EventShortDto> events) {
-        return CompilationDto.builder()
-                .id(compilation.getId())
-                .events(events != null ? events : List.of())
-                .pinned(compilation.getPinned())
-                .title(compilation.getTitle())
-                .build();
-    }
+    @Mapping(source = "compilation.id", target = "id")
+    @Mapping(source = "compilation.pinned", target = "pinned")
+    @Mapping(source = "compilation.title", target = "title")
+    @Mapping(source = "events", target = "events")
+    CompilationDto toDto(Compilation compilation, List<EventShortDto> events);
 }

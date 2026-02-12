@@ -1,57 +1,40 @@
 package ru.practicum.explorewithme.server.mapper;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import ru.practicum.explorewithme.event.dto.EventFullDto;
 import ru.practicum.explorewithme.event.dto.EventShortDto;
 import ru.practicum.explorewithme.event.dto.Location;
 import ru.practicum.explorewithme.server.entity.Event;
 import ru.practicum.explorewithme.server.entity.EventLocation;
 
-@Component
-@RequiredArgsConstructor
-public class EventMapper {
+@Mapper(componentModel = "spring", uses = {CategoryMapper.class, UserMapper.class})
+public interface EventMapper {
 
-    private final CategoryMapper categoryMapper;
-    private final UserMapper userMapper;
+    @Mapping(source = "event.id", target = "id")
+    @Mapping(source = "event.annotation", target = "annotation")
+    @Mapping(source = "event.category", target = "category")
+    @Mapping(source = "event.createdOn", target = "createdOn")
+    @Mapping(source = "event.description", target = "description")
+    @Mapping(source = "event.eventDate", target = "eventDate")
+    @Mapping(source = "event.initiator", target = "initiator")
+    @Mapping(source = "event.location", target = "location")
+    @Mapping(source = "event.paid", target = "paid")
+    @Mapping(source = "event.participantLimit", target = "participantLimit")
+    @Mapping(source = "event.publishedOn", target = "publishedOn")
+    @Mapping(source = "event.requestModeration", target = "requestModeration")
+    @Mapping(target = "state", expression = "java(event.getState().name())")
+    @Mapping(source = "event.title", target = "title")
+    EventFullDto toFullDto(Event event, Long confirmedRequests, Long views, boolean isNew);
 
-    public EventFullDto toFullDto(Event event, Long confirmedRequests, Long views, boolean isNew) {
-        return EventFullDto.builder()
-                .id(event.getId())
-                .annotation(event.getAnnotation())
-                .category(categoryMapper.toDto(event.getCategory()))
-                .confirmedRequests(confirmedRequests)
-                .createdOn(event.getCreatedOn())
-                .description(event.getDescription())
-                .eventDate(event.getEventDate())
-                .initiator(userMapper.toShortDto(event.getInitiator()))
-                .location(convertToDto(event.getLocation()))
-                .paid(event.getPaid())
-                .participantLimit(event.getParticipantLimit())
-                .publishedOn(event.getPublishedOn())
-                .requestModeration(event.getRequestModeration())
-                .state(event.getState().name())
-                .title(event.getTitle())
-                .views(views)
-                .build();
-    }
+    @Mapping(source = "event.id", target = "id")
+    @Mapping(source = "event.annotation", target = "annotation")
+    @Mapping(source = "event.category", target = "category")
+    @Mapping(source = "event.eventDate", target = "eventDate")
+    @Mapping(source = "event.initiator", target = "initiator")
+    @Mapping(source = "event.paid", target = "paid")
+    @Mapping(source = "event.title", target = "title")
+    EventShortDto toShortDto(Event event, Long confirmedRequests, Long views);
 
-    public EventShortDto toShortDto(Event event, Long confirmedRequests, Long views) {
-        return EventShortDto.builder()
-                .id(event.getId())
-                .annotation(event.getAnnotation())
-                .category(categoryMapper.toDto(event.getCategory()))
-                .confirmedRequests(confirmedRequests)
-                .eventDate(event.getEventDate())
-                .initiator(userMapper.toShortDto(event.getInitiator()))
-                .paid(event.getPaid())
-                .title(event.getTitle())
-                .views(views)
-                .build();
-    }
-
-    public Location convertToDto(EventLocation entity) {
-        if (entity == null) return null;
-        return new Location(entity.getLat(), entity.getLon());
-    }
+    Location toLocationDto(EventLocation location);
 }

@@ -17,10 +17,12 @@ import ru.practicum.explorewithme.server.repository.EventRepository;
 import ru.practicum.explorewithme.server.repository.RequestRepository;
 import ru.practicum.explorewithme.stats.client.StatsClient;
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
-import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
+import ru.practicum.explorewithme.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,13 +34,14 @@ public class EventServiceImpl implements EventService {
     private final UserService userService;
     private final CategoryService categoryService;
     private final RequestRepository requestRepository;
-    private final StatsClient statsClient;
+    private final StatsClient statClient;
     private final EventMapper eventMapper;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     private static final String APP_NAME = "ewm-main";
+    private static final String EVENTS_URI = "/events";
     private static final EventState PENDING_STATE = EventState.PENDING;
     private static final long USER_HOURS_AHEAD = 2L;
     private static final long ADMIN_HOURS_AHEAD = 1L;
@@ -210,21 +213,15 @@ public class EventServiceImpl implements EventService {
         List<Event> resultEvents = events.subList(safeFrom, endIndex);
         log.debug("[EventService] Найдено {} событий пользователя: userId={}", resultEvents.size(), userId);
 
-        // Batch оптимизация: собираем все ID событий
-        List<Long> eventIds = resultEvents.stream()
-                .map(Event::getId)
-                .collect(Collectors.toList());
-
-        // Два batch запроса вместо N+1
-        Map<Long, Long> confirmedCounts = getConfirmedCountsBatch(eventIds);
-        Map<Long, Long> views = getViewsBatch(eventIds);
+        List<Long> eventIds = resultEvents.stream().map(Event::getId).collect(Collectors.toList());
+        Map<Long, Long> confirmedCounts = getConfirmedCounts(eventIds);
 
         return resultEvents.stream()
-                .map(e -> eventMapper.toShortDto(
-                        e,
-                        confirmedCounts.getOrDefault(e.getId(), 0L),
-                        views.getOrDefault(e.getId(), 0L)
-                ))
+                .map(e -> {
+                    Long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
+                    Long views = getViewsForEvent(e.getId());
+                    return eventMapper.toShortDto(e, confirmed, views);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -249,22 +246,15 @@ public class EventServiceImpl implements EventService {
         List<Event> events = eventRepository.findAdminEvents(users, states, categories, rangeStart, rangeEnd, pageable);
         log.debug("[EventService] Найдено {} событий для админа", events.size());
 
-        // Batch оптимизация: собираем все ID событий
-        List<Long> eventIds = events.stream()
-                .map(Event::getId)
-                .collect(Collectors.toList());
-
-        // Два batch запроса вместо N+1
-        Map<Long, Long> confirmedCounts = getConfirmedCountsBatch(eventIds);
-        Map<Long, Long> views = getViewsBatch(eventIds);
+        List<Long> eventIds = events.stream().map(Event::getId).collect(Collectors.toList());
+        Map<Long, Long> confirmedCounts = getConfirmedCounts(eventIds);
 
         return events.stream()
-                .map(e -> eventMapper.toFullDto(
-                        e,
-                        confirmedCounts.getOrDefault(e.getId(), 0L),
-                        views.getOrDefault(e.getId(), 0L),
-                        false
-                ))
+                .map(e -> {
+                    Long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
+                    Long views = getViewsForEvent(e.getId());
+                    return eventMapper.toFullDto(e, confirmed, views, false);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -306,49 +296,37 @@ public class EventServiceImpl implements EventService {
 
         if (eventsPage.isEmpty()) {
             log.debug("[EventService] Публичные события не найдены");
-            sendHit("/events", remoteAddr);
+            sendHit(remoteAddr);
             return List.of();
         }
 
         log.debug("[EventService] Найдено {} публичных событий", eventsPage.getContent().size());
 
-        // Batch оптимизация: собираем все ID событий
-        List<Long> eventIds = eventsPage.getContent().stream()
-                .map(Event::getId)
-                .collect(Collectors.toList());
-
-        // Два batch запроса вместо N+1
-        Map<Long, Long> confirmedCounts = getConfirmedCountsBatch(eventIds);
-        Map<Long, Long> views = getViewsBatch(eventIds);
+        List<Long> eventIds = eventsPage.getContent().stream().map(Event::getId).collect(Collectors.toList());
+        Map<Long, Long> confirmedCounts = getConfirmedCounts(eventIds);
 
         List<EventShortDto> shortDtos = eventsPage.getContent().stream()
-                .map(e -> eventMapper.toShortDto(
-                        e,
-                        confirmedCounts.getOrDefault(e.getId(), 0L),
-                        views.getOrDefault(e.getId(), 0L)
-                ))
+                .map(e -> {
+                    Long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
+                    Long views = getViewsForEvent(e.getId());
+                    return eventMapper.toShortDto(e, confirmed, views);
+                })
                 .collect(Collectors.toList());
 
-        sendHit("/events", remoteAddr);
+        sendHit(remoteAddr);
         return shortDtos;
     }
 
-    private void sendHit(String uri, String remoteAddr) {
+    private void sendHit(String remoteAddr) {
         try {
             EndpointHit hit = EndpointHit.builder()
                     .app(APP_NAME)
-                    .uri(uri)
+                    .uri(EVENTS_URI)
                     .ip(remoteAddr)
                     .timestamp(LocalDateTime.now())
                     .build();
-
-            log.info("[EventService] Отправка статистики для: {}, IP: {}", uri, remoteAddr);
-            statsClient.saveHit(hit);
-
-            // ВАЖНО: Ждем, чтобы stats-сервис успел обработать запрос
-            // Это критично для тестов Postman!
-            Thread.sleep(100); // 100ms задержка
-
+            statClient.postHit(hit);
+            log.debug("[EventService] Статистика отправлена: ip={}", remoteAddr);
         } catch (Exception e) {
             log.warn("[EventService] Ошибка отправки статистики: {}", e.getMessage());
         }
@@ -357,7 +335,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public EventFullDto getPublicEvent(Long eventId, String remoteAddr) {
-        log.info("[EventService] Получение публичного события: eventId={}, ip={}", eventId, remoteAddr);
+        log.debug("[EventService] Получение публичного события: eventId={}, ip={}", eventId, remoteAddr);
 
         Event event = getById(eventId);
 
@@ -366,17 +344,26 @@ public class EventServiceImpl implements EventService {
             throw new EntityNotFoundException("Событие не опубликовано");
         }
 
-        // 1. Сохраняем просмотр
-        sendHit("/events/" + eventId, remoteAddr);
+        try {
+            EndpointHit hit = EndpointHit.builder()
+                    .app(APP_NAME)
+                    .uri(EVENTS_URI + "/" + eventId)
+                    .ip(remoteAddr)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+            statClient.postHit(hit);
+            log.debug("[EventService] Статистика отправлена для события: eventId={}", eventId);
+        } catch (Exception e) {
+            log.warn("[EventService] Ошибка отправки статистики для события {}: {}", eventId, e.getMessage());
+        }
 
-        // 2. Получаем обновленную статистику из stats-сервиса
         Long views = getViewsForEvent(eventId);
-        log.info("[EventService] Просмотры события {}: {}", eventId, views);
+        views = (views != null ? views : 0L) + 1;
 
         Long confirmedRequests = getConfirmedCount(event.getId());
 
-        // 3. Создаем DTO (НЕ ДУБЛИРУЕМ views через setViews!)
         EventFullDto dto = eventMapper.toFullDto(event, confirmedRequests, views, false);
+        dto.setViews(views);
 
         log.info("[EventService] Событие просмотрено: eventId={}, ip={}, views={}", eventId, remoteAddr, dto.getViews());
 
@@ -449,85 +436,38 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public Long getConfirmedCount(Long eventId) {
-        // Используем batch метод даже для одного события
-        Map<Long, Long> counts = getConfirmedCountsBatch(List.of(eventId));
-        Long count = counts.getOrDefault(eventId, 0L);
+        Long count = requestRepository.countByEventIdAndStatus(eventId, RequestStatus.CONFIRMED);
         log.debug("[EventService] Подтверждённых запросов: eventId={}, count={}", eventId, count);
-        return count;
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, Long> getConfirmedCounts(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> result = new HashMap<>();
+        List<Object[]> counts = requestRepository.countByEventIdsAndStatus(eventIds, RequestStatus.CONFIRMED);
+        for (Object[] row : counts) {
+            result.put((Long) row[0], (Long) row[1]);
+        }
+        log.debug("[EventService] Подтверждённых запросов для {} событий получено", result.size());
+        return result;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Long getViewsForEvent(Long eventId) {
-        // Используем batch метод даже для одного события
-        Map<Long, Long> viewsMap = getViewsBatch(List.of(eventId));
-        Long views = viewsMap.getOrDefault(eventId, 0L);
-        log.info("[EventService] Запрос просмотров для события {}: {}", eventId, views);
-        return views;
-    }
-
-    private Map<Long, Long> getConfirmedCountsBatch(List<Long> eventIds) {
-        if (eventIds == null || eventIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        return requestRepository.getConfirmedCountsMap(eventIds);
-    }
-
-    private Map<Long, Long> getViewsBatch(List<Long> eventIds) {
-        if (eventIds == null || eventIds.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
         try {
-            // Создаем URIs для всех событий
-            List<String> uris = eventIds.stream()
-                    .map(id -> "/events/" + id)
-                    .collect(Collectors.toList());
-
-            log.info("[EventService] Запрос статистики для {} событий: {}", eventIds.size(), uris);
-
-            // Устанавливаем широкий диапазон дат для тестов Postman
-            LocalDateTime start = LocalDateTime.of(2020, 1, 1, 0, 0, 0);
-            LocalDateTime end = LocalDateTime.of(2030, 12, 31, 23, 59, 59);
-
-            // Получаем статистику - unique=false для всех просмотров
-            List<ViewStatsDto> stats = statsClient.getStats(start, end, uris, false);
-
-            log.info("[EventService] Получено {} записей статистики для {} событий",
-                    stats != null ? stats.size() : 0, eventIds.size());
-
-            Map<Long, Long> resultMap = new HashMap<>();
-
-            if (stats != null && !stats.isEmpty()) {
-                for (ViewStatsDto stat : stats) {
-                    try {
-                        // Извлекаем ID события из URI
-                        String uri = stat.getUri();
-                        if (uri != null && uri.startsWith("/events/")) {
-                            String idStr = uri.substring("/events/".length());
-                            Long eventId = Long.parseLong(idStr);
-                            resultMap.put(eventId, stat.getHits());
-                            log.debug("[EventService] Для события {} найдено {} хитов",
-                                    eventId, stat.getHits());
-                        }
-                    } catch (Exception e) {
-                        log.warn("[EventService] Ошибка обработки записи статистики: {}", e.getMessage());
-                    }
-                }
-            }
-
-            // Заполняем нулями события без статистики
-            for (Long eventId : eventIds) {
-                resultMap.putIfAbsent(eventId, 0L);
-            }
-
-            return resultMap;
-
+            List<ViewStats> stats = statClient.getStats(LocalDateTime.now().minusYears(1),
+                    LocalDateTime.now(), List.of("/events/" + eventId), false).getBody();
+            Long views = stats != null && !stats.isEmpty() ? stats.get(0).getHits() : 0L;
+            log.debug("[EventService] Просмотров события: eventId={}, views={}", eventId, views);
+            return views;
         } catch (Exception e) {
-            log.error("[EventService] Ошибка при получении статистики для событий {}: {}",
-                    eventIds, e.getMessage(), e);
-            // Возвращаем нули для всех событий
-            return eventIds.stream().collect(Collectors.toMap(id -> id, id -> 0L));
+            log.warn("[EventService] Ошибка получения статистики для события {}: {}", eventId, e.getMessage());
+            return 0L;
         }
     }
 }

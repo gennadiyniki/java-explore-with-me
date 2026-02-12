@@ -1,7 +1,7 @@
 package ru.practicum.explorewithme.stats.server.service;
 
 import ru.practicum.explorewithme.stats.dto.EndpointHit;
-import ru.practicum.explorewithme.stats.dto.ViewStatsDto;
+import ru.practicum.explorewithme.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,5 +12,5 @@ public interface StatService {
     EndpointHit saveHit(EndpointHit hit);
 
     // Получить статистику
-    List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, Boolean unique);
+    List<ViewStats> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, Boolean unique);
 }

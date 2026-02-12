@@ -1,33 +1,19 @@
 package ru.practicum.explorewithme.server.mapper;
 
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import ru.practicum.explorewithme.user.dto.NewUserRequest;
 import ru.practicum.explorewithme.user.dto.UserDto;
 import ru.practicum.explorewithme.user.dto.UserShortDto;
 import ru.practicum.explorewithme.server.entity.User;
 
-@Component
-public class UserMapper {
+@Mapper(componentModel = "spring")
+public interface UserMapper {
 
-    public UserDto toDto(User user) {
-        return UserDto.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .name(user.getName())
-                .build();
-    }
+    UserDto toDto(User user);
 
-    public UserShortDto toShortDto(User user) {
-        return UserShortDto.builder()
-                .id(user.getId())
-                .name(user.getName())
-                .build();
-    }
+    UserShortDto toShortDto(User user);
 
-    public User toEntity(NewUserRequest dto) {
-        return User.builder()
-                .email(dto.getEmail())
-                .name(dto.getName())
-                .build();
-    }
+    @Mapping(target = "id", ignore = true)
+    User toEntity(NewUserRequest dto);
 }

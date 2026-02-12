@@ -6,6 +6,7 @@ import ru.practicum.explorewithme.server.entity.EventState;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public interface EventService {
 
@@ -41,6 +42,9 @@ public interface EventService {
 
     // Получить количество подтверждённых запросов
     Long getConfirmedCount(Long eventId);
+
+    // Получить количество подтверждённых запросов для списка событий
+    Map<Long, Long> getConfirmedCounts(List<Long> eventIds);
 
     // Получить количество просмотров
     Long getViewsForEvent(Long eventId);

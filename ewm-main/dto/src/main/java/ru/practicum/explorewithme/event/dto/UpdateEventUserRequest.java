@@ -1,6 +1,5 @@
 package ru.practicum.explorewithme.event.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -24,7 +23,6 @@ public class UpdateEventUserRequest {
     private String description;
 
     @Future(message = "Дата события не должна быть в прошлом")
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime eventDate;
 
     private Location location;
