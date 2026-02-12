@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepository;
@@ -36,6 +37,7 @@ public class EventServiceImpl implements EventService {
     private final RequestRepository requestRepository;
     private final StatsClient statClient;
     private final EventMapper eventMapper;
+    private final CommentService commentService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -83,8 +85,9 @@ public class EventServiceImpl implements EventService {
 
         Long confirmedRequests = getConfirmedCount(event.getId());
         Long views = getViewsForEvent(event.getId());
+        Long commentCount = commentService.getCommentsCount(event.getId());
 
-        return eventMapper.toFullDto(event, confirmedRequests, views, true);
+        return eventMapper.toFullDto(event, confirmedRequests, views, commentCount, true);
     }
 
     @Override
@@ -138,8 +141,9 @@ public class EventServiceImpl implements EventService {
 
         Long confirmedRequests = getConfirmedCount(event.getId());
         Long views = getViewsForEvent(event.getId());
+        Long commentCount = commentService.getCommentsCount(event.getId());
 
-        return eventMapper.toFullDto(event, confirmedRequests, views, false);
+        return eventMapper.toFullDto(event, confirmedRequests, views, commentCount, false);
     }
 
     @Override
@@ -188,12 +192,12 @@ public class EventServiceImpl implements EventService {
 
         Long confirmedRequests = getConfirmedCount(event.getId());
         Long views = getViewsForEvent(event.getId());
+        Long commentCount = commentService.getCommentsCount(event.getId());
 
-        return eventMapper.toFullDto(event, confirmedRequests, views, false);
+        return eventMapper.toFullDto(event, confirmedRequests, views, commentCount, false);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<EventShortDto> getUserEvents(Long userId, Integer from, Integer size) {
         log.debug("[EventService] Получение событий пользователя: userId={}, from={}, size={}", userId, from, size);
 
@@ -220,13 +224,13 @@ public class EventServiceImpl implements EventService {
                 .map(e -> {
                     Long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
                     Long views = getViewsForEvent(e.getId());
-                    return eventMapper.toShortDto(e, confirmed, views);
+                    Long commentCount = commentService.getCommentsCount(e.getId());
+                    return eventMapper.toShortDto(e, confirmed, views, commentCount);
                 })
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<EventFullDto> getAdminEvents(List<Long> users, List<EventState> states, List<Long> categories,
                                              LocalDateTime rangeStart, LocalDateTime rangeEnd,
                                              Integer from, Integer size) {
@@ -253,13 +257,13 @@ public class EventServiceImpl implements EventService {
                 .map(e -> {
                     Long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
                     Long views = getViewsForEvent(e.getId());
-                    return eventMapper.toFullDto(e, confirmed, views, false);
+                    Long commentCount = commentService.getCommentsCount(e.getId());
+                    return eventMapper.toFullDto(e, confirmed, views, commentCount, false);
                 })
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<EventShortDto> getPublicEvents(String text, List<Long> categories, Boolean paid,
                                                LocalDateTime rangeStart, LocalDateTime rangeEnd, Boolean onlyAvailable,
                                                String sort, Integer from, Integer size, String remoteAddr) {
@@ -269,7 +273,7 @@ public class EventServiceImpl implements EventService {
         int page = from != null ? from / (size != null ? size : 10) : 0;
         int pageSize = size != null ? size : 10;
 
-        Sort sortBy = "VIEWS".equals(sort) ? Sort.by("eventDate").descending() :
+        Sort sortBy = "VIEWS".equals(sort) ? Sort.by("views").descending() :
                 Sort.by("eventDate").descending();
         PageRequest pageable = PageRequest.of(page, pageSize, sortBy);
 
@@ -309,7 +313,8 @@ public class EventServiceImpl implements EventService {
                 .map(e -> {
                     Long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
                     Long views = getViewsForEvent(e.getId());
-                    return eventMapper.toShortDto(e, confirmed, views);
+                    Long commentCount = commentService.getCommentsCount(e.getId());
+                    return eventMapper.toShortDto(e, confirmed, views, commentCount);
                 })
                 .collect(Collectors.toList());
 
@@ -333,7 +338,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public EventFullDto getPublicEvent(Long eventId, String remoteAddr) {
         log.debug("[EventService] Получение публичного события: eventId={}, ip={}", eventId, remoteAddr);
 
@@ -361,17 +365,18 @@ public class EventServiceImpl implements EventService {
         views = (views != null ? views : 0L) + 1;
 
         Long confirmedRequests = getConfirmedCount(event.getId());
+        Long commentCount = commentService.getCommentsCount(event.getId());
 
-        EventFullDto dto = eventMapper.toFullDto(event, confirmedRequests, views, false);
+        EventFullDto dto = eventMapper.toFullDto(event, confirmedRequests, views, commentCount, false);
         dto.setViews(views);
 
-        log.info("[EventService] Событие просмотрено: eventId={}, ip={}, views={}", eventId, remoteAddr, dto.getViews());
+        log.info("[EventService] Событие просмотрено: eventId={}, ip={}, views={}, comments={}",
+                eventId, remoteAddr, dto.getViews(), commentCount);
 
         return dto;
     }
 
     @Override
-    @Transactional(readOnly = true)
     public EventFullDto getUserEvent(Long userId, Long eventId) {
         log.debug("[EventService] Получение события пользователя: userId={}, eventId={}", userId, eventId);
 
@@ -383,13 +388,14 @@ public class EventServiceImpl implements EventService {
 
         Long confirmedRequests = getConfirmedCount(event.getId());
         Long views = getViewsForEvent(event.getId());
+        Long commentCount = commentService.getCommentsCount(event.getId());
 
-        log.debug("[EventService] Событие пользователя найдено: eventId={}, userId={}", eventId, userId);
-        return eventMapper.toFullDto(event, confirmedRequests, views, false);
+        log.debug("[EventService] Событие пользователя найдено: eventId={}, userId={}, comments={}",
+                eventId, userId, commentCount);
+        return eventMapper.toFullDto(event, confirmedRequests, views, commentCount, false);
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Event getById(Long eventId) {
         log.debug("[EventService] Получение события по ID: {}", eventId);
 
@@ -434,7 +440,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Long getConfirmedCount(Long eventId) {
         Long count = requestRepository.countByEventIdAndStatus(eventId, RequestStatus.CONFIRMED);
         log.debug("[EventService] Подтверждённых запросов: eventId={}, count={}", eventId, count);
@@ -442,7 +447,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Map<Long, Long> getConfirmedCounts(List<Long> eventIds) {
         if (eventIds == null || eventIds.isEmpty()) {
             return Map.of();
@@ -457,7 +461,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Long getViewsForEvent(Long eventId) {
         try {
             List<ViewStats> stats = statClient.getStats(LocalDateTime.now().minusYears(1),

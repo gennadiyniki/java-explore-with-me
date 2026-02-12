@@ -1,22 +1,28 @@
 package ru.practicum.explorewithme.server.repository;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import ru.practicum.explorewithme.server.entity.Compilation;
 
-// Репозиторий подборок
+import java.util.List;
+
 public interface CompilationRepository extends JpaRepository<Compilation, Long> {
 
-    // Проверка существования подборки по названию
     boolean existsByTitle(String title);
 
-    // Проверка существования подборки по названию, исключая указанный ID
     boolean existsByTitleAndIdNot(String title, Long id);
 
-    // Проверка существования подборки по ID
     boolean existsById(Long id);
 
-    // Поиск подборок по статусу закрепления с пагинацией
-    Page<Compilation> findAllByPinned(boolean pinned, Pageable pageable);
+    @Query(value = "SELECT * FROM compilations ORDER BY id LIMIT :size OFFSET :from",
+            nativeQuery = true)
+    List<Compilation> findAllWithPagination(@Param("from") int from,
+                                            @Param("size") int size);
+
+    @Query(value = "SELECT * FROM compilations WHERE pinned = :pinned ORDER BY id LIMIT :size OFFSET :from",
+            nativeQuery = true)
+    List<Compilation> findAllByPinned(@Param("pinned") Boolean pinned,
+                                      @Param("from") int from,
+                                      @Param("size") int size);
 }

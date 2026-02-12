@@ -1,5 +1,6 @@
 package ru.practicum.explorewithme.event.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Future;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,4 +35,7 @@ public class EventShortDto {
     private String title;
 
     private Long views;
+
+    @JsonProperty("commentCount")
+    private Long commentCount;
 }
