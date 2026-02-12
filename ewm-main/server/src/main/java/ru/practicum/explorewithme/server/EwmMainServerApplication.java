@@ -7,7 +7,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @SpringBootApplication
 @EnableTransactionManagement
-@ComponentScan(basePackages = {"ru.practicum.explorewithme.server", "ru.practicum.explorewithme.client", "ru.practicum.explorewithme.server.exception"})
+@ComponentScan(basePackages = {
+        "ru.practicum.explorewithme.server",
+        "ru.practicum.explorewithme.stats.client",
+        "ru.practicum.explorewithme.server.exception"
+})
 public class EwmMainServerApplication {
     public static void main(String[] args) {
         SpringApplication.run(EwmMainServerApplication.class, args);
