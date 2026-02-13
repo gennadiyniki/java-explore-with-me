@@ -1,5 +1,3 @@
-Привет!
-3я часть, добавил комментарии
-ссылка па pull-request:
+Привет! внес изменения в 3ю часть,ссылка па pull-request:
 
-https://github.com/gennadiyniki/java-explore-with-me/actions/runs/21955218763/job/63417140651?pr=5
+https://github.com/gennadiyniki/java-explore-with-me/actions/runs/21977824861/job/63493272497?pr=5
